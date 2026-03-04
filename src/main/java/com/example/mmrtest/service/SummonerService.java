@@ -13,6 +13,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+import org.springframework.web.util.UriUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
@@ -26,6 +28,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.nio.charset.StandardCharsets;
 
 @Service
 public class SummonerService {
@@ -60,6 +63,12 @@ public class SummonerService {
     private <T> T riotGet(String url, Class<T> responseType) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-Riot-Token", apiKey);
+        headers.set("User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36");
+        headers.set("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7");
+        headers.set("Accept-Charset", "application/x-www-form-urlencoded; charset=UTF-8");
+        headers.set("Origin", "https://developer.riotgames.com");
+        headers.set("Accept", "application/json");
 
         HttpEntity<Void> entity = new HttpEntity<>(headers);
         ResponseEntity<T> resp = restTemplate.exchange(url, HttpMethod.GET, entity, responseType);
@@ -68,22 +77,29 @@ public class SummonerService {
 
     @Cacheable(value = "summonerInfo", key = "#gameName + '-' + #tagLine", cacheManager = "cacheManager")
     public SummonerDTO getSummonerInfo(String gameName, String tagLine) {
-        String accountUrl = "https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/" + gameName + "/"
-                + tagLine;
+        String encodedGameName = UriUtils.encodePathSegment(gameName, StandardCharsets.UTF_8);
+        String encodedTagLine = UriUtils.encodePathSegment(tagLine, StandardCharsets.UTF_8);
+
+        String accountUrl = "https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/" + encodedGameName + "/"
+                + encodedTagLine;
         Map<String, Object> accountResponse = riotGet(accountUrl, Map.class);
         if (accountResponse == null || accountResponse.get("puuid") == null) {
             throw new RuntimeException("해당 닉네임의 계정을 찾을 수 없습니다.");
         }
 
         String puuid = (String) accountResponse.get("puuid");
-        String realName = (String) accountResponse.get("gameName");
+        String accountByPuuidUrl = "https://asia.api.riotgames.com/riot/account/v1/accounts/by-puuid/" + puuid;
+        Map<String, Object> accountByPuuidResponse = riotGet(accountByPuuidUrl, Map.class);
 
+        String realName = accountByPuuidResponse != null && accountByPuuidResponse.get("gameName") != null
+                ? (String) accountByPuuidResponse.get("gameName")
+                : (String) accountResponse.get("gameName");
         String summonerUrl = "https://kr.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/" + puuid;
         Map<String, Object> summonerMap = riotGet(summonerUrl, Map.class);
 
         SummonerDTO summoner = new SummonerDTO();
         summoner.setPuuid(puuid);
-        summoner.setName(realName);
+        summoner.setName(StringUtils.hasText(realName) ? realName : gameName);
 
         if (summonerMap != null) {
             summoner.setId((String) summonerMap.get("id"));
