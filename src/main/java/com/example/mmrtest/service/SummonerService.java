@@ -17,6 +17,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriUtils;
 import org.springframework.web.client.RestTemplate;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
@@ -28,7 +29,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.nio.charset.StandardCharsets;
 
 @Service
 public class SummonerService {
@@ -159,20 +159,23 @@ public class SummonerService {
             flexMatchIds = riotMatchService.getMatchIds(puuid, 440);
         }
 
+        final List<String> resolvedSoloMatchIds = soloMatchIds;
+        final List<String> resolvedFlexMatchIds = flexMatchIds;
+
         List<MatchSummary> soloMatchDetails = Collections.emptyList();
         List<MatchSummary> flexMatchDetails = Collections.emptyList();
 
         if (needSolo && needFlex) {
             CompletableFuture<List<MatchSummary>> soloDetailsFuture = CompletableFuture
-                    .supplyAsync(() -> riotMatchService.getMatchSummaries(puuid, soloMatchIds, 420), executorService);
+                    .supplyAsync(() -> riotMatchService.getMatchSummaries(puuid, resolvedSoloMatchIds, 420), executorService);
             CompletableFuture<List<MatchSummary>> flexDetailsFuture = CompletableFuture
-                    .supplyAsync(() -> riotMatchService.getMatchSummaries(puuid, flexMatchIds, 440), executorService);
+                    .supplyAsync(() -> riotMatchService.getMatchSummaries(puuid, resolvedFlexMatchIds, 440), executorService);
             soloMatchDetails = soloDetailsFuture.join();
             flexMatchDetails = flexDetailsFuture.join();
         } else if (needSolo) {
-            soloMatchDetails = riotMatchService.getMatchSummaries(puuid, soloMatchIds, 420);
+            soloMatchDetails = riotMatchService.getMatchSummaries(puuid, resolvedSoloMatchIds, 420);
         } else if (needFlex) {
-            flexMatchDetails = riotMatchService.getMatchSummaries(puuid, flexMatchIds, 440);
+            flexMatchDetails = riotMatchService.getMatchSummaries(puuid, resolvedFlexMatchIds, 440);
         }
 
         ScoreResult soloScoreResult = scoreEngine.calculateScore(soloMatchDetails, 1000);
