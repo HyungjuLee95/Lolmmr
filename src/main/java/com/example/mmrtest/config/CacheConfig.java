@@ -1,4 +1,4 @@
-package main.java.com.example.mmrtest.config;
+package com.example.mmrtest.config;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import org.springframework.cache.CacheManager;
@@ -15,7 +15,7 @@ public class CacheConfig {
 
     @Bean
     public CacheManager cacheManager() {
-        CaffeineCacheManager cacheManager = new CaffeineCacheManager("summonerInfo", "matchIds", "matchDetail");
+        CaffeineCacheManager cacheManager = new CaffeineCacheManager("summonerInfo", "matchIds", "matchRaw");
         cacheManager.setCaffeine(caffeineCacheBuilder());
         return cacheManager;
     }
