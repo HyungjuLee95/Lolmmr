@@ -17,6 +17,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriUtils;
 import org.springframework.web.client.RestTemplate;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
