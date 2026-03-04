@@ -79,11 +79,40 @@ function App() {
     if (!target) return;
     setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:8080/api/mmr?name=${encodeURIComponent(target)}`);
+      const res = await axios.get(`http://localhost:8080/api/mmr?name=${encodeURIComponent(target)}&queue=solo`);
       setResult(res.data);
       setSummonerName(target);
+      setSelectedQueue('solo');
     } catch (e) { alert("검색 실패"); } finally { setLoading(false); }
   }, [summonerName]);
+
+
+  useEffect(() => {
+    const loadFlexIfNeeded = async () => {
+      if (!result || !summonerName) return;
+      if (selectedQueue !== 'flex') return;
+
+      const flexDetails = result?.queues?.flex?.matchDetails || [];
+      if (flexDetails.length > 0) return;
+
+      try {
+        const res = await axios.get(`http://localhost:8080/api/mmr?name=${encodeURIComponent(summonerName)}&queue=flex`);
+        setResult(prev => ({
+          ...prev,
+          summoner: res.data.summoner ?? prev.summoner,
+          queues: {
+            ...prev.queues,
+            flex: res.data.queues.flex
+          }
+        }));
+      } catch (e) {
+        console.error(e);
+        alert("자유랭크 데이터 로딩 실패");
+      }
+    };
+
+    loadFlexIfNeeded();
+  }, [selectedQueue, result, summonerName]);
 
   const activeQueueData = result?.queues ? result.queues[selectedQueue] : null;
   const matchDetails = activeQueueData?.matchDetails || [];
