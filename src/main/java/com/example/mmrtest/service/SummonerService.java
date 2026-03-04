@@ -8,6 +8,10 @@ import com.example.mmrtest.repository.SummonerHistoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -53,11 +57,20 @@ public class SummonerService {
         return base.getOrDefault(tier.toUpperCase(), 1000) + offset.getOrDefault(rank.toUpperCase(), 0);
     }
 
+    private <T> T riotGet(String url, Class<T> responseType) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-Riot-Token", apiKey);
+
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        ResponseEntity<T> resp = restTemplate.exchange(url, HttpMethod.GET, entity, responseType);
+        return resp.getBody();
+    }
+
     @Cacheable(value = "summonerInfo", key = "#gameName + '-' + #tagLine", cacheManager = "cacheManager")
     public SummonerDTO getSummonerInfo(String gameName, String tagLine) {
         String accountUrl = "https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/" + gameName + "/"
-                + tagLine + "?api_key=" + apiKey;
-        Map<String, Object> accountResponse = restTemplate.getForObject(accountUrl, Map.class);
+                + tagLine;
+        Map<String, Object> accountResponse = riotGet(accountUrl, Map.class);
         if (accountResponse == null || accountResponse.get("puuid") == null) {
             throw new RuntimeException("해당 닉네임의 계정을 찾을 수 없습니다.");
         }
@@ -65,9 +78,8 @@ public class SummonerService {
         String puuid = (String) accountResponse.get("puuid");
         String realName = (String) accountResponse.get("gameName");
 
-        String summonerUrl = "https://kr.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/" + puuid + "?api_key="
-                + apiKey;
-        Map<String, Object> summonerMap = restTemplate.getForObject(summonerUrl, Map.class);
+        String summonerUrl = "https://kr.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/" + puuid;
+        Map<String, Object> summonerMap = riotGet(summonerUrl, Map.class);
 
         SummonerDTO summoner = new SummonerDTO();
         summoner.setPuuid(puuid);
@@ -78,10 +90,9 @@ public class SummonerService {
             summoner.setSummonerLevel(((Number) summonerMap.get("summonerLevel")).intValue());
         }
 
-        String leagueUrl = "https://kr.api.riotgames.com/lol/league/v4/entries/by-puuid/" + puuid + "?api_key="
-                + apiKey;
+        String leagueUrl = "https://kr.api.riotgames.com/lol/league/v4/entries/by-puuid/" + puuid;
 
-        Object[] leagueResponse = restTemplate.getForObject(leagueUrl, Object[].class);
+        Object[] leagueResponse = riotGet(leagueUrl, Object[].class);
 
         if (leagueResponse != null && leagueResponse.length > 0) {
             for (Object obj : leagueResponse) {

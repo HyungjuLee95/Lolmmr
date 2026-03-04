@@ -3,6 +3,10 @@ package com.example.mmrtest.service;
 import com.example.mmrtest.dto.MatchSummary;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -25,6 +29,15 @@ public class RiotMatchService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
+    private <T> T riotGet(String url, Class<T> responseType) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-Riot-Token", apiKey);
+
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        ResponseEntity<T> resp = restTemplate.exchange(url, HttpMethod.GET, entity, responseType);
+        return resp.getBody();
+    }
+
     @Cacheable(
             value = "matchIds",
             key = "#puuid + '-' + #queueId",
@@ -33,18 +46,18 @@ public class RiotMatchService {
     )
     public List<String> getMatchIds(String puuid, Integer queueId) {
         String url = "https://asia.api.riotgames.com/lol/match/v5/matches/by-puuid/" + puuid
-                + "/ids?start=0&count=100&type=ranked&api_key=" + apiKey;
+                + "/ids?start=0&count=100&type=ranked";
         if (queueId != null) {
             url += "&queue=" + queueId;
         }
 
-        String[] matchIds = restTemplate.getForObject(url, String[].class);
+        String[] matchIds = riotGet(url, String[].class);
         List<String> ids = matchIds != null ? Arrays.asList(matchIds) : new ArrayList<>();
 
         if (queueId != null && ids.isEmpty()) {
             String fallbackUrl = "https://asia.api.riotgames.com/lol/match/v5/matches/by-puuid/" + puuid
-                    + "/ids?start=0&count=100&type=ranked&api_key=" + apiKey;
-            String[] fallbackIds = restTemplate.getForObject(fallbackUrl, String[].class);
+                    + "/ids?start=0&count=100&type=ranked";
+            String[] fallbackIds = riotGet(fallbackUrl, String[].class);
             ids = fallbackIds != null ? Arrays.asList(fallbackIds) : new ArrayList<>();
         }
 
@@ -67,8 +80,8 @@ public class RiotMatchService {
 
     @Cacheable(value = "matchRaw", key = "#matchId", cacheManager = "cacheManager")
     public Map<String, Object> fetchMatchRaw(String matchId) {
-        String url = "https://asia.api.riotgames.com/lol/match/v5/matches/" + matchId + "?api_key=" + apiKey;
-        return restTemplate.getForObject(url, Map.class);
+        String url = "https://asia.api.riotgames.com/lol/match/v5/matches/" + matchId;
+        return riotGet(url, Map.class);
     }
 
     public MatchSummary fetchMatchDetail(String puuid, String matchId, Integer expectedQueueId) {
