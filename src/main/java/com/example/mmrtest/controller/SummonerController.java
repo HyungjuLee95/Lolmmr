@@ -2,6 +2,8 @@ package com.example.mmrtest.controller;
 
 import com.example.mmrtest.dto.SummonerDTO;
 import com.example.mmrtest.service.SummonerService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,6 +18,8 @@ import java.util.Map;
 @CrossOrigin(origins = "http://localhost:5173")
 public class SummonerController {
 
+    private static final Logger log = LoggerFactory.getLogger(SummonerController.class);
+
     private final SummonerService summonerService;
 
     public SummonerController(SummonerService summonerService) {
@@ -23,7 +27,7 @@ public class SummonerController {
     }
 
     @Value("${dev.allowlist.enabled:false}")
-    private boolean allowlistEnabled;
+    private String allowlistEnabledRaw;
 
     @Value("${dev.allowlist.riotIds:}")
     private List<String> allowedRiotIds;
@@ -49,7 +53,7 @@ public class SummonerController {
 
             String fullRiotId = gameName + "#" + tagLine;
 
-            if (allowlistEnabled && !allowedRiotIds.contains(fullRiotId)) {
+            if (isAllowlistEnabled() && !allowedRiotIds.contains(fullRiotId)) {
                 Map<String, Object> errorResult = new HashMap<>();
                 errorResult.put("error", "개발 모드입니다. 허용된 계정만 조회 가능합니다.");
                 return errorResult;
@@ -92,4 +96,21 @@ public class SummonerController {
             return errorResult;
         }
     }
+    private boolean isAllowlistEnabled() {
+        if (allowlistEnabledRaw == null) {
+            return false;
+        }
+
+        String normalized = allowlistEnabledRaw.trim().toLowerCase();
+        if ("true".equals(normalized)) {
+            return true;
+        }
+        if ("false".equals(normalized)) {
+            return false;
+        }
+
+        log.warn("Invalid boolean value for dev.allowlist.enabled='{}'. Fallback to false.", allowlistEnabledRaw);
+        return false;
+    }
+
 }

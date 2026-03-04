@@ -14,9 +14,11 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.util.UriUtils;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -29,8 +31,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.nio.charset.StandardCharsets;
-
 @Service
 public class SummonerService {
     @Autowired
@@ -72,21 +72,38 @@ public class SummonerService {
         headers.set("Accept", "application/json");
 
         HttpEntity<Void> entity = new HttpEntity<>(headers);
-        ResponseEntity<T> resp = restTemplate.exchange(url, HttpMethod.GET, entity, responseType);
+        ResponseEntity<T> resp = restTemplate.exchange(URI.create(url), HttpMethod.GET, entity, responseType);
         return resp.getBody();
+    }
+
+    private Map<String, Object> getAccountByRiotId(String gameName, String tagLine) {
+        String encodedGameName = UriUtils.encodePathSegment(gameName, StandardCharsets.UTF_8);
+        String[] tagCandidates = new String[] {
+                tagLine,
+                tagLine.toLowerCase(Locale.ROOT),
+                tagLine.toUpperCase(Locale.ROOT)
+        };
+
+        for (String candidate : tagCandidates) {
+            try {
+                String encodedTagLine = UriUtils.encodePathSegment(candidate, StandardCharsets.UTF_8);
+                String accountUrl = "https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/"
+                        + encodedGameName + "/" + encodedTagLine;
+                Map<String, Object> accountResponse = riotGet(accountUrl, Map.class);
+                if (accountResponse != null && accountResponse.get("puuid") != null) {
+                    return accountResponse;
+                }
+            } catch (HttpClientErrorException.NotFound ignored) {
+                // 태그라인 케이스 불일치 fallback
+            }
+        }
+
+        throw new RuntimeException("해당 닉네임의 계정을 찾을 수 없습니다.");
     }
 
     @Cacheable(value = "summonerInfo", key = "#gameName + '-' + #tagLine", cacheManager = "cacheManager")
     public SummonerDTO getSummonerInfo(String gameName, String tagLine) {
-        String encodedGameName = UriUtils.encodePathSegment(gameName, StandardCharsets.UTF_8);
-        String encodedTagLine = UriUtils.encodePathSegment(tagLine, StandardCharsets.UTF_8);
-
-        String accountUrl = "https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/" + encodedGameName + "/"
-                + encodedTagLine;
-        Map<String, Object> accountResponse = riotGet(accountUrl, Map.class);
-        if (accountResponse == null || accountResponse.get("puuid") == null) {
-            throw new RuntimeException("해당 닉네임의 계정을 찾을 수 없습니다.");
-        }
+        Map<String, Object> accountResponse = getAccountByRiotId(gameName, tagLine);
 
         String puuid = (String) accountResponse.get("puuid");
         String accountByPuuidUrl = "https://asia.api.riotgames.com/riot/account/v1/accounts/by-puuid/" + puuid;
