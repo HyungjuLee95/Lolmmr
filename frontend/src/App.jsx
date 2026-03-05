@@ -110,7 +110,7 @@ const MOCK_DATA = {
           analysis: [
             { type: 'good', text: '라인전 단계(10분 이전)에서 상대를 압도했습니다.' },
             { type: 'good', text: '팀 전체 킬의 75%에 관여하며 승리를 견인했습니다.' },
-            { type: 'bad', text: '시야 점수가 티어 평균 대비 부족합다.' },
+            { type: 'bad', text: '시야 점수가 티어 평균 대비 부족합니다.' },
           ],
         },
         {
@@ -457,7 +457,7 @@ export default function App() {
                   </svg>
                   <div className="absolute flex flex-col items-center">
                     <span className="text-sm font-bold text-white">{data.summary.winRate}%</span>
-                    <span className="text-[10px] text-gray-400">{data.summary.wins}승 {data.summary.losses}패</span>
+                    <span className="text-[10px] text-gray-400">{data.summary.wins} {data.summary.losses}패</span>
                   </div>
                 </div>
               </div>
