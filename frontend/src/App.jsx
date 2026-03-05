@@ -4,7 +4,6 @@ import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis
 } from 'recharts';
 
-
 const Icon = ({ children, className = '' }) => (
   <svg
     viewBox="0 0 24 24"
@@ -16,7 +15,7 @@ const Icon = ({ children, className = '' }) => (
     strokeLinecap="round"
     strokeLinejoin="round"
     className={className}
-    style={{ width: "1em", height: "1em", flexShrink: 0 }}
+    style={{ width: '1em', height: '1em', flexShrink: 0 }}
   >
     {children}
   </svg>
@@ -159,14 +158,14 @@ const PlayerRow = ({ player, isBlueTeam }) => (
     <div className="w-[80px] md:w-[100px] flex flex-col gap-1 items-center hidden sm:flex">
       <span className="text-[9px] md:text-[10px] text-gray-400">{player.damage.toLocaleString()}</span>
       <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full ${isBlueTeam ? 'bg-blue-500' : 'bg-red-500'}`} style={{ width: `${(player.damage / player.maxDamage) * 100}%` }}></div>
+        <div className={`h-full rounded-full ${isBlueTeam ? 'bg-blue-500' : 'bg-red-500'}`} style={{ width: `${(player.damage / player.maxDamage) * 100}%` }} />
       </div>
     </div>
     <div className="w-[40px] text-center text-[10px] md:text-xs text-gray-400">{player.cs}</div>
     <div className="w-[120px] md:w-[150px] flex gap-0.5 justify-end">
       {player.items.map((item, idx) => (
         <div key={idx} className={`w-4 h-4 md:w-5 md:h-5 rounded ${item === 0 ? 'bg-gray-800/50' : 'bg-gray-700'}`}>
-          {item !== 0 && <img src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/item/${item}.png`} className="w-full h-full rounded" alt="item"/>}
+          {item !== 0 && <img src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/item/${item}.png`} className="w-full h-full rounded" alt="item" />}
         </div>
       ))}
     </div>
@@ -188,8 +187,8 @@ const ComparisonBar = ({ label, myValue, oppValue, isLowerBetter = false }) => {
         <span className={`${isOppWin ? 'text-red-400 font-bold' : 'text-gray-400'}`}>{oppValue.toLocaleString()}</span>
       </div>
       <div className="flex w-full h-1.5 md:h-2 rounded-full overflow-hidden bg-gray-800">
-        <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${myPct}%` }}></div>
-        <div className="bg-red-500 h-full transition-all duration-500" style={{ width: `${oppPct}%` }}></div>
+        <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${myPct}%` }} />
+        <div className="bg-red-500 h-full transition-all duration-500" style={{ width: `${oppPct}%` }} />
       </div>
     </div>
   );
@@ -220,13 +219,13 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
           <div className={`font-bold mb-1 ${match.win ? 'text-blue-400' : 'text-red-400'}`}>{match.win ? '승리' : '패배'}</div>
           <div className="mb-1">{match.gameType}</div>
           <div>{match.timeAgo}</div>
-          <div className="border-t border-gray-700 my-1"></div>
+          <div className="border-t border-gray-700 my-1" />
           <div>{match.gameDuration}</div>
         </div>
 
         <div className="flex-1 p-3 flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <img src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/champion/${match.summary.champion}.png`} alt={match.summary.champion} className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-gray-700"/>
+            <img src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/champion/${match.summary.champion}.png`} alt={match.summary.champion} className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-gray-700" />
             <div className="flex flex-col gap-1 hidden sm:flex">
               <div className="w-4 h-4 sm:w-5 sm:h-5 bg-gray-700 rounded text-[8px] flex items-center justify-center border border-gray-600">D</div>
               <div className="w-4 h-4 sm:w-5 sm:h-5 bg-gray-700 rounded text-[8px] flex items-center justify-center border border-gray-600">F</div>
@@ -247,7 +246,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
           <div className="grid grid-cols-4 sm:grid-cols-3 gap-1">
             {match.summary.items.map((item, idx) => (
               <div key={idx} className={`w-6 h-6 rounded ${item === 0 ? 'bg-gray-800/50' : 'bg-gray-700'}`}>
-                {item !== 0 && <img src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/item/${item}.png`} alt="item" className="w-full h-full rounded"/>}
+                {item !== 0 && <img src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/item/${item}.png`} alt="item" className="w-full h-full rounded" />}
               </div>
             ))}
           </div>
@@ -276,7 +275,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                   <span className="text-xs font-bold text-blue-400">{match.overview.blueTeam.isWin ? '승리' : '패배'} (블루팀)</span>
                   <span className="text-[10px] md:text-xs text-gray-400">총 킬: {match.overview.blueTeam.kills}</span>
                 </div>
-                <div className="flex flex-col">{match.overview.blueTeam.players.map((p) => <PlayerRow key={p.id} player={p} isBlueTeam={true} />)}</div>
+                <div className="flex flex-col">{match.overview.blueTeam.players.map((p) => <PlayerRow key={p.id} player={p} isBlueTeam />)}</div>
               </div>
               <div className="bg-[#3f1d24]/20 rounded-lg border border-red-900/30">
                 <div className="bg-[#3f1d24]/50 px-3 py-2 border-b border-red-900/30 flex justify-between items-center">
@@ -295,7 +294,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                 <div className="flex gap-2 md:gap-4">
                   {match.overview.blueTeam.players.map((p) => (
                     <div key={p.id} onClick={() => setSelectedPlayerId(p.id)} className={`flex items-center gap-1.5 cursor-pointer p-1 pr-2 rounded-full transition-all ${selectedPlayerId === p.id ? 'bg-purple-600/20 ring-1 ring-purple-500' : 'hover:bg-gray-800 grayscale hover:grayscale-0 opacity-60 hover:opacity-100'}`}>
-                      <img src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/champion/${p.champion}.png`} className="w-6 h-6 md:w-8 md:h-8 rounded-full" alt=""/>
+                      <img src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/champion/${p.champion}.png`} className="w-6 h-6 md:w-8 md:h-8 rounded-full" alt="" />
                       <div className="flex flex-col hidden sm:flex">
                         <span className={`text-[10px] md:text-xs font-bold leading-none ${selectedPlayerId === p.id ? 'text-purple-400' : 'text-gray-300'}`}>{p.champion}</span>
                       </div>
@@ -424,10 +423,10 @@ export default function App() {
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="w-full lg:w-80 flex flex-col gap-4 flex-shrink-0">
             <div className="bg-[#1c1c1f] rounded-xl p-5 border border-gray-800 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-600 to-purple-600"></div>
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-600 to-purple-600" />
               <div className="flex items-start gap-4">
                 <div className="relative">
-                  <img src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/profileicon/${data.summoner.profileIconId}.png`} alt="Profile" className="w-20 h-20 rounded-xl border border-gray-700 object-cover"/>
+                  <img src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/profileicon/${data.summoner.profileIconId}.png`} alt="Profile" className="w-20 h-20 rounded-xl border border-gray-700 object-cover" />
                   <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#121212] border border-gray-700 text-[10px] px-2 py-0.5 rounded-full text-gray-300 whitespace-nowrap">
                     LV {data.summoner.summonerLevel}
                   </div>
@@ -458,11 +457,11 @@ export default function App() {
                   </svg>
                   <div className="absolute flex flex-col items-center">
                     <span className="text-sm font-bold text-white">{data.summary.winRate}%</span>
-                    <span className="text-[10px] text-gray-400">{data.summary.wins}승 {data.summary.losses}패</span>
+                    <span className="text-[10px] text-gray-400">{data.summary.wins} {data.summary.losses}패</span>
                   </div>
                 </div>
               </div>
-              <div className="h-16 w-px bg-gray-800"></div>
+              <div className="h-16 w-px bg-gray-800" />
               <div className="flex flex-col justify-center text-center">
                 <span className="text-xs text-gray-400 mb-1">KDA 평점</span>
                 <div className="text-xl font-bold text-blue-400">{data.summary.kda}</div>
@@ -477,7 +476,7 @@ export default function App() {
               <div className="p-1.5">
                 {data.summary.recentChampions.map((champ, idx) => (
                   <div key={idx} className="flex items-center gap-3 p-2.5 hover:bg-[#27272a] rounded-lg transition-colors cursor-default">
-                    <img src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/champion/${champ.name}.png`} alt={champ.name} className="w-8 h-8 rounded-full bg-gray-700"/>
+                    <img src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/champion/${champ.name}.png`} alt={champ.name} className="w-8 h-8 rounded-full bg-gray-700" />
                     <div className="flex-1">
                       <div className="text-sm font-semibold text-gray-200 leading-tight">{champ.name}</div>
                       <div className="text-[10px] text-gray-400 mt-0.5">{champ.games} 게임</div>
@@ -495,7 +494,7 @@ export default function App() {
           <div className="flex-1 flex flex-col gap-2">
             {data.matches.map((match) => (
               <MatchCard
-                key={`${match.id}-${expandedMatchId === match.id ? 'open' : 'closed'}` }
+                key={`${match.id}-${expandedMatchId === match.id ? 'open' : 'closed'}`}
                 match={match}
                 isExpanded={expandedMatchId === match.id}
                 onToggle={() => setExpandedMatchId((prev) => (prev === match.id ? null : match.id))}
