@@ -28,7 +28,7 @@ spring:
         web-allow-others: false
 riot:
   api:
-    key: ${RIOT_API_KEY}
+    key: ${RIOT_API_KEY:${RIOT_API_KEy:}}
 
 # Development Mode Options
 dev:
@@ -38,4 +38,3 @@ dev:
       - "Hide on bush#KR1"
       - "개발자계정#KR1"
       - "테스트계정1#KR1"
-

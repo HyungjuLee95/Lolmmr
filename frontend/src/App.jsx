@@ -170,9 +170,7 @@ export default function App() {
                       fill="transparent"
                       stroke="#3b82f6"
                       strokeWidth="8"
-                      strokeDasharray={`${
-                        ((data?.summary?.winRate || 0) / 100) * 213
-                      } 213`}
+                      strokeDasharray={`${((data?.summary?.winRate || 0) / 100) * 213} 213`}
                     />
                   </svg>
 
