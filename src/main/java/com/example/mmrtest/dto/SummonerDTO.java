@@ -1,19 +1,12 @@
 package com.example.mmrtest.dto;
 
-import lombok.Getter;
-import lombok.Setter;
-
-@Getter
-@Setter
 public class SummonerDTO {
     private String id; // encrypted id (티어 조회용)
     private String puuid;
     private String name;
     private int summonerLevel;
+    private int profileIconId;
 
-    // 랭크 정보를 담을 내부 클래스
-    @Getter
-    @Setter
     public static class RankInfo {
         private String tier;
         private String rank;
@@ -30,6 +23,30 @@ public class SummonerDTO {
             this.rank = "";
             this.leaguePoints = 0;
         }
+
+        public String getTier() {
+            return tier;
+        }
+
+        public void setTier(String tier) {
+            this.tier = tier;
+        }
+
+        public String getRank() {
+            return rank;
+        }
+
+        public void setRank(String rank) {
+            this.rank = rank;
+        }
+
+        public int getLeaguePoints() {
+            return leaguePoints;
+        }
+
+        public void setLeaguePoints(int leaguePoints) {
+            this.leaguePoints = leaguePoints;
+        }
     }
 
     private RankInfo soloRank = new RankInfo();
@@ -42,4 +59,90 @@ public class SummonerDTO {
     private String rank;
     @Deprecated
     private int leaguePoints;
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getPuuid() {
+        return puuid;
+    }
+
+    public void setPuuid(String puuid) {
+        this.puuid = puuid;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public int getSummonerLevel() {
+        return summonerLevel;
+    }
+
+    public void setSummonerLevel(int summonerLevel) {
+        this.summonerLevel = summonerLevel;
+    }
+
+    public int getProfileIconId() {
+        return profileIconId;
+    }
+
+    public void setProfileIconId(int profileIconId) {
+        this.profileIconId = profileIconId;
+    }
+
+    public RankInfo getSoloRank() {
+        return soloRank;
+    }
+
+    public void setSoloRank(RankInfo soloRank) {
+        this.soloRank = soloRank;
+    }
+
+    public RankInfo getFlexRank() {
+        return flexRank;
+    }
+
+    public void setFlexRank(RankInfo flexRank) {
+        this.flexRank = flexRank;
+    }
+
+    @Deprecated
+    public String getTier() {
+        return tier;
+    }
+
+    @Deprecated
+    public void setTier(String tier) {
+        this.tier = tier;
+    }
+
+    @Deprecated
+    public String getRank() {
+        return rank;
+    }
+
+    @Deprecated
+    public void setRank(String rank) {
+        this.rank = rank;
+    }
+
+    @Deprecated
+    public int getLeaguePoints() {
+        return leaguePoints;
+    }
+
+    @Deprecated
+    public void setLeaguePoints(int leaguePoints) {
+        this.leaguePoints = leaguePoints;
+    }
 }
