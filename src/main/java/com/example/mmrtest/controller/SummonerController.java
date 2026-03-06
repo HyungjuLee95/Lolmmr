@@ -9,8 +9,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.Map;
 
 @RestController
@@ -38,22 +42,35 @@ public class SummonerController {
             @RequestParam(value = "queue", required = false, defaultValue = "solo") String queue
     ) {
         try {
-            String decodedName = URLDecoder.decode(name, StandardCharsets.UTF_8);
+            String decodedName = URLDecoder.decode(name, StandardCharsets.UTF_8).trim();
+
+            if (decodedName.isBlank()) {
+                Map<String, Object> errorResult = new HashMap<>();
+                errorResult.put("error", "소환사 이름은 비어 있을 수 없습니다.");
+                return errorResult;
+            }
+
             String gameName;
             String tagLine;
 
             if (decodedName.contains("#")) {
-                String[] parts = decodedName.split("#");
-                gameName = parts[0];
-                tagLine = parts[1];
+                String[] parts = decodedName.split("#", 2);
+                gameName = parts[0].trim();
+                tagLine = parts[1].trim();
             } else {
                 gameName = decodedName;
                 tagLine = "KR1";
             }
 
+            if (gameName.isBlank() || tagLine.isBlank()) {
+                Map<String, Object> errorResult = new HashMap<>();
+                errorResult.put("error", "올바른 Riot ID 형식이 아닙니다. (예: gameName#KR1)");
+                return errorResult;
+            }
+
             String fullRiotId = gameName + "#" + tagLine;
 
-            if (isAllowlistEnabled() && !allowedRiotIds.contains(fullRiotId)) {
+            if (isAllowlistEnabled() && !getNormalizedAllowlist().contains(normalizeRiotId(fullRiotId))) {
                 Map<String, Object> errorResult = new HashMap<>();
                 errorResult.put("error", "개발 모드입니다. 허용된 계정만 조회 가능합니다.");
                 return errorResult;
@@ -98,12 +115,13 @@ public class SummonerController {
             return finalResponse;
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to analyze MMR for name='{}', queue='{}'", name, queue, e);
             Map<String, Object> errorResult = new HashMap<>();
             errorResult.put("error", "조회 실패: " + e.getMessage());
             return errorResult;
         }
     }
+
     private boolean isAllowlistEnabled() {
         if (allowlistEnabledRaw == null) {
             return false;
@@ -119,6 +137,25 @@ public class SummonerController {
 
         log.warn("Invalid boolean value for dev.allowlist.enabled='{}'. Fallback to false.", allowlistEnabledRaw);
         return false;
+    }
+
+    private Set<String> getNormalizedAllowlist() {
+        if (allowedRiotIds == null) {
+            return Collections.emptySet();
+        }
+
+        return allowedRiotIds.stream()
+                .map(this::normalizeRiotId)
+                .filter(value -> !value.isBlank())
+                .collect(Collectors.toSet());
+    }
+
+    private String normalizeRiotId(String riotId) {
+        if (riotId == null) {
+            return "";
+        }
+
+        return riotId.trim().toLowerCase(Locale.ROOT);
     }
 
 }
