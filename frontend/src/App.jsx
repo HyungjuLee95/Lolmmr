@@ -80,7 +80,6 @@ export default function App() {
             <button type="submit" className="absolute right-2 top-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium">검색</button>
           </form>
         </div>
-      </header>
 
       {(isLoading || errorMessage) && (
         <div className="max-w-6xl mx-auto px-4 pt-4">
@@ -114,6 +113,7 @@ export default function App() {
                     </div>
                   </div>
                 </div>
+                <div className="flex flex-col">{match.overview.redTeam.players.map((p) => <PlayerRow key={p.id} player={p} isBlueTeam={false} />)}</div>
               </div>
             </div>
 
