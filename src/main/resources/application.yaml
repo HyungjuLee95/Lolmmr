@@ -33,7 +33,7 @@ riot:
 # Development Mode Options
 dev:
   allowlist:
-    enabled: true
+    enabled: false
     riotIds:
       - "Hide on bush#KR1"
       - "개발자계정#KR1"
