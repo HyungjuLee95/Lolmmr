@@ -5,6 +5,7 @@ public class SummonerDTO {
     private String puuid;
     private String name;
     private int summonerLevel;
+    private int profileIconId;
 
     public static class RankInfo {
         private String tier;
@@ -89,6 +90,14 @@ public class SummonerDTO {
 
     public void setSummonerLevel(int summonerLevel) {
         this.summonerLevel = summonerLevel;
+    }
+
+    public int getProfileIconId() {
+        return profileIconId;
+    }
+
+    public void setProfileIconId(int profileIconId) {
+        this.profileIconId = profileIconId;
     }
 
     public RankInfo getSoloRank() {

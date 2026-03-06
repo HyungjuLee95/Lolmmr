@@ -18,6 +18,7 @@ public class MatchSummary {
     private int subRuneId;
     private int totalCs;
     private int goldEarned;
+    private int queueId;
     private long gameEndTimeStamp;
     private int performanceScore;
 
@@ -27,7 +28,7 @@ public class MatchSummary {
     public MatchSummary(boolean win, int kills, int deaths, int assists, String championName, List<Integer> items,
                         List<String> teamMembers, List<String> teamChamps, int gameDurationMinutes,
                         int spell1Id, int spell2Id, int mainRuneId, int subRuneId,
-                        int totalCs, int goldEarned, long gameEndTimeStamp, int performanceScore) {
+                        int totalCs, int goldEarned, int queueId, long gameEndTimeStamp, int performanceScore) {
         this.win = win;
         this.kills = kills;
         this.deaths = deaths;
@@ -43,6 +44,7 @@ public class MatchSummary {
         this.subRuneId = subRuneId;
         this.totalCs = totalCs;
         this.goldEarned = goldEarned;
+        this.queueId = queueId;
         this.gameEndTimeStamp = gameEndTimeStamp;
         this.performanceScore = performanceScore;
     }
@@ -165,6 +167,14 @@ public class MatchSummary {
 
     public void setGoldEarned(int goldEarned) {
         this.goldEarned = goldEarned;
+    }
+
+    public int getQueueId() {
+        return queueId;
+    }
+
+    public void setQueueId(int queueId) {
+        this.queueId = queueId;
     }
 
     public long getGameEndTimeStamp() {

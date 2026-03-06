@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import axios from 'axios';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, Legend,
   Radar, RadarChart, PolarGrid, PolarAngleAxis
 } from 'recharts';
+
 
 const Icon = ({ children, className = '' }) => (
   <svg
@@ -144,6 +146,183 @@ const MOCK_DATA = {
   ],
 };
 
+const QUEUE_LABEL = {
+  420: '솔랭',
+  440: '자랭',
+};
+
+const POSITION_FALLBACK = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUP'];
+
+const formatDuration = (minutes) => {
+  const safeMinutes = Number.isFinite(minutes) ? minutes : 0;
+  const m = Math.max(0, Math.floor(safeMinutes));
+  return `${String(m).padStart(2, '0')}:00`;
+};
+
+const formatTimeAgo = (timestamp) => {
+  if (!timestamp) return '방금 전';
+  const diffMs = Date.now() - Number(timestamp);
+  if (!Number.isFinite(diffMs) || diffMs < 0) return '방금 전';
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 60) return `${Math.max(diffMin, 1)}분 전`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}시간 전`;
+  const diffDay = Math.floor(diffHour / 24);
+  return `${diffDay}일 전`;
+};
+
+const buildRecentChampions = (matchDetails) => {
+  const stats = new Map();
+
+  matchDetails.forEach((match) => {
+    const key = match.championName || 'Unknown';
+    if (!stats.has(key)) {
+      stats.set(key, { name: key, games: 0, wins: 0, kills: 0, deaths: 0, assists: 0 });
+    }
+    const row = stats.get(key);
+    row.games += 1;
+    if (match.win) row.wins += 1;
+    row.kills += match.kills || 0;
+    row.deaths += match.deaths || 0;
+    row.assists += match.assists || 0;
+  });
+
+  return Array.from(stats.values())
+    .sort((a, b) => b.games - a.games)
+    .slice(0, 3)
+    .map((row) => {
+      const winRate = row.games > 0 ? Math.round((row.wins * 100) / row.games) : 0;
+      const kdaValue = row.deaths === 0 ? row.kills + row.assists : (row.kills + row.assists) / row.deaths;
+      return {
+        name: row.name,
+        games: row.games,
+        winRate,
+        kda: kdaValue.toFixed(1),
+      };
+    });
+};
+
+const buildOverviewPlayers = (match, summonerName) => {
+  const members = match.teamMembers || [];
+  const champs = match.teamChamps || [];
+  const meIndex = members.findIndex((name) => name?.split('#')[0] === summonerName);
+
+  const players = members.map((name, idx) => ({
+    id: idx + 1,
+    position: POSITION_FALLBACK[idx % POSITION_FALLBACK.length],
+    name: name?.split('#')[0] || `플레이어${idx + 1}`,
+    champion: champs[idx] || 'Ahri',
+    kills: idx === meIndex ? match.kills : 0,
+    deaths: idx === meIndex ? match.deaths : 0,
+    assists: idx === meIndex ? match.assists : 0,
+    damage: idx === meIndex ? Math.max((match.performanceScore || 1) * 1000, 8000) : 0,
+    maxDamage: Math.max((match.performanceScore || 1) * 1000, 8000),
+    cs: idx === meIndex ? match.totalCs || 0 : 0,
+    gold: idx === meIndex ? match.goldEarned || 0 : 0,
+    items: idx === meIndex ? (match.items || []).slice(0, 6) : [0, 0, 0, 0, 0, 0],
+    isMe: idx === meIndex,
+  }));
+
+  return {
+    blue: players.slice(0, 5),
+    red: players.slice(5, 10),
+  };
+};
+
+const toUiMatch = (match, summonerName, index) => {
+  const overview = buildOverviewPlayers(match, summonerName);
+  const myParticipant = overview.blue.concat(overview.red).find((p) => p.isMe) || overview.blue[0];
+
+  return {
+    id: `${match.gameEndTimeStamp || Date.now()}_${index}`,
+    win: !!match.win,
+    gameDuration: formatDuration(match.gameDurationMinutes),
+    gameType: QUEUE_LABEL[match.queueId] || `큐 ${match.queueId || '-'}`,
+    timeAgo: formatTimeAgo(match.gameEndTimeStamp),
+    myParticipantId: myParticipant?.id || 1,
+    summary: {
+      champion: match.championName || 'Ahri',
+      kills: match.kills || 0,
+      deaths: match.deaths || 0,
+      assists: match.assists || 0,
+      kda: (match.deaths || 0) === 0 ? String((match.kills || 0) + (match.assists || 0)) : (((match.kills || 0) + (match.assists || 0)) / (match.deaths || 1)).toFixed(2),
+      cs: match.totalCs || 0,
+      items: (match.items || []).slice(0, 6),
+    },
+    overview: {
+      blueTeam: {
+        isWin: !!match.win,
+        kills: overview.blue.reduce((sum, p) => sum + (p.kills || 0), 0),
+        gold: `${(overview.blue.reduce((sum, p) => sum + (p.gold || 0), 0) / 1000).toFixed(1)}k`,
+        players: overview.blue,
+      },
+      redTeam: {
+        isWin: !match.win,
+        kills: overview.red.reduce((sum, p) => sum + (p.kills || 0), 0),
+        gold: `${(overview.red.reduce((sum, p) => sum + (p.gold || 0), 0) / 1000).toFixed(1)}k`,
+        players: overview.red,
+      },
+    },
+    teamMembers: overview.blue.concat(overview.red).map((player) => ({
+      participantId: player.id,
+      isMe: player.isMe,
+      champion: player.champion,
+      name: player.name,
+      radarData: [
+        { subject: 'KDA', score: Math.min(100, ((player.kills + player.assists) * 10)) },
+        { subject: '딜량', score: Math.min(100, Math.round((player.damage / (player.maxDamage || 1)) * 100)) },
+        { subject: '시야', score: 40 },
+        { subject: '합류', score: 60 },
+        { subject: '생존', score: Math.max(20, 100 - (player.deaths * 12)) },
+        { subject: '오브젝트', score: 50 },
+      ],
+      timeline: [
+        { time: '0', gold: 500, cs: 0 },
+        { time: '5', gold: Math.round((player.gold || 0) * 0.2), cs: Math.round((player.cs || 0) * 0.2) },
+        { time: '10', gold: Math.round((player.gold || 0) * 0.4), cs: Math.round((player.cs || 0) * 0.4) },
+        { time: '15', gold: Math.round((player.gold || 0) * 0.6), cs: Math.round((player.cs || 0) * 0.6) },
+        { time: '20', gold: Math.round((player.gold || 0) * 0.8), cs: Math.round((player.cs || 0) * 0.8) },
+        { time: '25', gold: player.gold || 0, cs: player.cs || 0 },
+      ],
+      analysis: [
+        { type: player.isMe && match.win ? 'good' : 'bad', text: player.isMe && match.win ? '승리에 기여한 경기입니다.' : '지표를 바탕으로 개선 포인트를 확인하세요.' },
+        { type: 'warning', text: '임시 분석 데이터입니다. 상세 로직은 Phase C에서 고도화됩니다.' },
+      ],
+    })),
+  };
+};
+
+const mapApiToUiData = (apiData, preferredQueue = 'solo') => {
+  if (!apiData?.summoner || !apiData?.queues) {
+    return MOCK_DATA;
+  }
+
+  const queueData = apiData.queues[preferredQueue] || apiData.queues.solo || apiData.queues.flex;
+  const matchDetails = queueData?.matchDetails || [];
+  const queueSummary = queueData?.summary || { wins: 0, losses: 0, winRate: 0, kda: '0.00' };
+  const summonerName = apiData.summoner.name || 'Unknown';
+
+  return {
+    summoner: {
+      name: summonerName,
+      summonerLevel: apiData.summoner.summonerLevel || 0,
+      profileIconId: apiData.summoner.profileIconId || MOCK_DATA.summoner.profileIconId,
+      scoreDetails: {
+        totalScore: Number(queueData?.scoreResult?.totalScore || 0).toFixed(1),
+        grade: queueData?.scoreResult?.grade || 'C',
+      },
+    },
+    summary: {
+      wins: queueSummary.wins || 0,
+      losses: queueSummary.losses || 0,
+      winRate: queueSummary.winRate || 0,
+      kda: queueSummary.kda || '0.00',
+      recentChampions: buildRecentChampions(matchDetails),
+    },
+    matches: matchDetails.map((match, index) => toUiMatch(match, summonerName, index)),
+  };
+};
+
 const PlayerRow = ({ player, isBlueTeam }) => (
   <div className={`flex items-center justify-between py-1 px-2 md:py-1.5 md:px-3 hover:bg-black/20 ${player.isMe ? 'bg-black/30 border-l-2 border-l-blue-400' : ''}`}>
     <div className="flex items-center gap-2 w-[120px] md:w-[160px]">
@@ -158,14 +337,14 @@ const PlayerRow = ({ player, isBlueTeam }) => (
     <div className="w-[80px] md:w-[100px] flex flex-col gap-1 items-center hidden sm:flex">
       <span className="text-[9px] md:text-[10px] text-gray-400">{player.damage.toLocaleString()}</span>
       <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full ${isBlueTeam ? 'bg-blue-500' : 'bg-red-500'}`} style={{ width: `${(player.damage / player.maxDamage) * 100}%` }} />
+        <div className={`h-full rounded-full ${isBlueTeam ? 'bg-blue-500' : 'bg-red-500'}`} style={{ width: `${(player.damage / player.maxDamage) * 100}%` }}></div>
       </div>
     </div>
     <div className="w-[40px] text-center text-[10px] md:text-xs text-gray-400">{player.cs}</div>
     <div className="w-[120px] md:w-[150px] flex gap-0.5 justify-end">
       {player.items.map((item, idx) => (
         <div key={idx} className={`w-4 h-4 md:w-5 md:h-5 rounded ${item === 0 ? 'bg-gray-800/50' : 'bg-gray-700'}`}>
-          {item !== 0 && <img src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/item/${item}.png`} className="w-full h-full rounded" alt="item" />}
+          {item !== 0 && <img src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/item/${item}.png`} className="w-full h-full rounded" alt="item"/>}
         </div>
       ))}
     </div>
@@ -187,8 +366,8 @@ const ComparisonBar = ({ label, myValue, oppValue, isLowerBetter = false }) => {
         <span className={`${isOppWin ? 'text-red-400 font-bold' : 'text-gray-400'}`}>{oppValue.toLocaleString()}</span>
       </div>
       <div className="flex w-full h-1.5 md:h-2 rounded-full overflow-hidden bg-gray-800">
-        <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${myPct}%` }} />
-        <div className="bg-red-500 h-full transition-all duration-500" style={{ width: `${oppPct}%` }} />
+        <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${myPct}%` }}></div>
+        <div className="bg-red-500 h-full transition-all duration-500" style={{ width: `${oppPct}%` }}></div>
       </div>
     </div>
   );
@@ -225,7 +404,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
 
         <div className="flex-1 p-3 flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <img src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/champion/${match.summary.champion}.png`} alt={match.summary.champion} className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-gray-700" />
+            <img src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/champion/${match.summary.champion}.png`} alt={match.summary.champion} className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-gray-700"/>
             <div className="flex flex-col gap-1 hidden sm:flex">
               <div className="w-4 h-4 sm:w-5 sm:h-5 bg-gray-700 rounded text-[8px] flex items-center justify-center border border-gray-600">D</div>
               <div className="w-4 h-4 sm:w-5 sm:h-5 bg-gray-700 rounded text-[8px] flex items-center justify-center border border-gray-600">F</div>
@@ -246,7 +425,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
           <div className="grid grid-cols-4 sm:grid-cols-3 gap-1">
             {match.summary.items.map((item, idx) => (
               <div key={idx} className={`w-6 h-6 rounded ${item === 0 ? 'bg-gray-800/50' : 'bg-gray-700'}`}>
-                {item !== 0 && <img src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/item/${item}.png`} alt="item" className="w-full h-full rounded" />}
+                {item !== 0 && <img src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/item/${item}.png`} alt="item" className="w-full h-full rounded"/>}
               </div>
             ))}
           </div>
@@ -382,9 +561,42 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
 };
 
 export default function App() {
-  const [searchInput, setSearchInput] = useState('');
-  const [data] = useState(MOCK_DATA);
+  const [searchInput, setSearchInput] = useState('Hide on bush#KR1');
+  const [data, setData] = useState(MOCK_DATA);
   const [expandedMatchId, setExpandedMatchId] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const fetchMmrData = useCallback(async (queryName) => {
+    try {
+      setIsLoading(true);
+      setErrorMessage('');
+
+      const response = await axios.get('/api/mmr', {
+        params: {
+          name: queryName,
+          queue: 'solo',
+        },
+      });
+
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
+      setData(mapApiToUiData(response.data, 'solo'));
+      setExpandedMatchId(null);
+    } catch (error) {
+      console.error(error);
+      setData(MOCK_DATA);
+      setErrorMessage(error?.message || 'API 호출 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMmrData('Hide on bush#KR1');
+  }, [fetchMmrData]);
 
   const getGradeColor = (grade) => {
     if (grade.startsWith('S')) return 'text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]';
@@ -404,6 +616,12 @@ export default function App() {
             className="w-full md:w-[400px] relative"
             onSubmit={(e) => {
               e.preventDefault();
+              const trimmed = searchInput.trim();
+              if (!trimmed) {
+                setErrorMessage('소환사명을 입력해주세요.');
+                return;
+              }
+              fetchMmrData(trimmed);
             }}
           >
             <input
@@ -418,6 +636,13 @@ export default function App() {
           </form>
         </div>
       </header>
+
+      {(isLoading || errorMessage) && (
+        <div className="max-w-6xl mx-auto px-4 pt-4">
+          {isLoading && <div className="text-xs text-blue-300">데이터를 불러오는 중...</div>}
+          {errorMessage && <div className="text-xs text-amber-300 mt-1">{errorMessage}</div>}
+        </div>
+      )}
 
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex flex-col lg:flex-row gap-6">
@@ -457,7 +682,7 @@ export default function App() {
                   </svg>
                   <div className="absolute flex flex-col items-center">
                     <span className="text-sm font-bold text-white">{data.summary.winRate}%</span>
-                    <span className="text-[10px] text-gray-400">{data.summary.wins} {data.summary.losses}패</span>
+                    <span className="text-[10px] text-gray-400">{data.summary.wins}승 {data.summary.losses}패</span>
                   </div>
                 </div>
               </div>

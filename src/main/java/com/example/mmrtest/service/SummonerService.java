@@ -122,6 +122,10 @@ public class SummonerService {
         if (summonerMap != null) {
             summoner.setId((String) summonerMap.get("id"));
             summoner.setSummonerLevel(((Number) summonerMap.get("summonerLevel")).intValue());
+            Number profileIconId = (Number) summonerMap.get("profileIconId");
+            if (profileIconId != null) {
+                summoner.setProfileIconId(profileIconId.intValue());
+            }
         }
 
         String leagueUrl = "https://kr.api.riotgames.com/lol/league/v4/entries/by-puuid/" + puuid;
@@ -212,8 +216,55 @@ public class SummonerService {
         result.put("flexLpChange", flexLpChange);
         result.put("soloScoreResult", soloScoreResult);
         result.put("flexScoreResult", flexScoreResult);
+        result.put("requestedQueue", queue);
+        result.put("resolvedQueue", normalizedQueue);
+
+        Map<String, Object> counts = new HashMap<>();
+        counts.put("solo", soloMatchDetails.size());
+        counts.put("flex", flexMatchDetails.size());
+        result.put("counts", counts);
+
+        result.put("soloSummary", buildQueueSummary(soloMatchDetails));
+        result.put("flexSummary", buildQueueSummary(flexMatchDetails));
 
         return result;
+    }
+
+    private Map<String, Object> buildQueueSummary(List<MatchSummary> matchDetails) {
+        Map<String, Object> summary = new HashMap<>();
+        if (matchDetails == null || matchDetails.isEmpty()) {
+            summary.put("wins", 0);
+            summary.put("losses", 0);
+            summary.put("winRate", 0);
+            summary.put("kda", "0.00");
+            return summary;
+        }
+
+        int wins = 0;
+        int totalKills = 0;
+        int totalDeaths = 0;
+        int totalAssists = 0;
+
+        for (MatchSummary match : matchDetails) {
+            if (match.isWin()) {
+                wins++;
+            }
+            totalKills += match.getKills();
+            totalDeaths += match.getDeaths();
+            totalAssists += match.getAssists();
+        }
+
+        int losses = matchDetails.size() - wins;
+        int winRate = (int) Math.round((wins * 100.0) / matchDetails.size());
+        double kdaValue = totalDeaths == 0
+                ? (totalKills + totalAssists)
+                : ((double) (totalKills + totalAssists) / totalDeaths);
+
+        summary.put("wins", wins);
+        summary.put("losses", losses);
+        summary.put("winRate", winRate);
+        summary.put("kda", String.format(Locale.US, "%.2f", kdaValue));
+        return summary;
     }
 
     private String normalizeQueue(String queue) {

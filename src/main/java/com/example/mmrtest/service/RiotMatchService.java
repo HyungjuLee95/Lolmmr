@@ -134,6 +134,7 @@ public class RiotMatchService {
                     int goldEarned = ((Number) p.get("goldEarned")).intValue();
 
                     long gameEndTimeStamp = ((Number) info.get("gameEndTimestamp")).longValue();
+                    int queueId = ((Number) info.get("queueId")).intValue();
 
                     int rawDuration = ((Number) info.get("gameDuration")).intValue();
                     if (rawDuration > 10000) rawDuration = rawDuration / 1000;
@@ -167,7 +168,7 @@ public class RiotMatchService {
                             ((Number) p.get("summoner1Id")).intValue(),
                             ((Number) p.get("summoner2Id")).intValue(),
                             mainRuneId, subRuneId,
-                            totalCs, goldEarned, gameEndTimeStamp,
+                            totalCs, goldEarned, queueId, gameEndTimeStamp,
                             (kills + assists) - deaths
                     );
                 }
