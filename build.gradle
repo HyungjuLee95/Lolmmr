@@ -37,8 +37,6 @@ dependencies {
     // -------------------------
 
     // 3. 편의 기능 및 개발 도구
-    compileOnly 'org.projectlombok:lombok'
-    annotationProcessor 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
     // 캐시 의존성 (Spring Cache + Caffeine)

@@ -1,6 +1,16 @@
 package com.example.mmrtest.service;
 
-import com.example.mmrtest.dto.MatchSummary;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpEntity;
@@ -10,15 +20,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
+import com.example.mmrtest.dto.MatchResultType;
+import com.example.mmrtest.dto.MatchSummary;
 
 @Service
 public class RiotMatchService {
@@ -76,7 +79,7 @@ public class RiotMatchService {
                         () -> fetchMatchDetail(puuid, matchId, expectedQueueId),
                         executorService
                 ))
-                .collect(Collectors.toList());
+                .toList();
 
         return futures.stream()
                 .map(CompletableFuture::join)
@@ -93,93 +96,230 @@ public class RiotMatchService {
     public MatchSummary fetchMatchDetail(String puuid, String matchId, Integer expectedQueueId) {
         try {
             Map<String, Object> response = fetchMatchRaw(matchId);
-            if (response == null) return null;
-
-            Map<String, Object> info = (Map<String, Object>) response.get("info");
-            if (info == null) return null;
-
-            if (expectedQueueId != null) {
-                Number queueNumber = (Number) info.get("queueId");
-                if (queueNumber == null || !expectedQueueId.equals(queueNumber.intValue())) {
-                    return null;
-                }
+            if (response == null) {
+                return null;
             }
 
-            List<Map<String, Object>> participants = (List<Map<String, Object>>) info.get("participants");
-            if (participants == null) return null;
+            Map<String, Object> info = asMap(response.get("info"));
+            if (info == null) {
+                return null;
+            }
+
+            int queueId = getInt(info, "queueId", 0);
+            if (expectedQueueId != null && !expectedQueueId.equals(queueId)) {
+                return null;
+            }
+
+            List<Map<String, Object>> participants = asListOfMaps(info.get("participants"));
+            if (participants.isEmpty()) {
+                return null;
+            }
 
             for (Map<String, Object> p : participants) {
-                if (puuid.equals(p.get("puuid"))) {
-                    int myTeamId = ((Number) p.get("teamId")).intValue();
-
-                    List<Map<String, Object>> sortedParts = participants.stream()
-                            .sorted((p1, p2) -> {
-                                int t1 = ((Number) p1.get("teamId")).intValue();
-                                int t2 = ((Number) p2.get("teamId")).intValue();
-                                if (t1 == myTeamId && t2 != myTeamId) return -1;
-                                if (t1 != myTeamId && t2 == myTeamId) return 1;
-                                return 0;
-                            }).collect(Collectors.toList());
-
-                    List<String> teamMembers = sortedParts.stream()
-                            .map(part -> part.get("riotIdGameName") + "#" + part.get("riotIdTagline"))
-                            .collect(Collectors.toList());
-
-                    List<String> teamChamps = sortedParts.stream()
-                            .map(part -> (String) part.get("championName"))
-                            .collect(Collectors.toList());
-
-                    int totalCs = ((Number) p.get("totalMinionsKilled")).intValue()
-                            + ((Number) p.get("neutralMinionsKilled")).intValue();
-                    int goldEarned = ((Number) p.get("goldEarned")).intValue();
-
-                    long gameEndTimeStamp = ((Number) info.get("gameEndTimestamp")).longValue();
-                    int queueId = ((Number) info.get("queueId")).intValue();
-
-                    int rawDuration = ((Number) info.get("gameDuration")).intValue();
-                    if (rawDuration > 10000) rawDuration = rawDuration / 1000;
-                    int duration = rawDuration / 60;
-
-                    List<Integer> items = Arrays.asList(
-                            ((Number) p.get("item0")).intValue(),
-                            ((Number) p.get("item1")).intValue(),
-                            ((Number) p.get("item2")).intValue(),
-                            ((Number) p.get("item3")).intValue(),
-                            ((Number) p.get("item4")).intValue(),
-                            ((Number) p.get("item5")).intValue(),
-                            ((Number) p.get("item6")).intValue()
-                    );
-
-                    Map<String, Object> perks = (Map<String, Object>) p.get("perks");
-                    List<Map<String, Object>> styles = (List<Map<String, Object>>) perks.get("styles");
-                    int mainRuneId = ((Number) ((List<Map<String, Object>>) styles.get(0).get("selections"))
-                            .get(0).get("perk")).intValue();
-                    int subRuneId = ((Number) styles.get(1).get("style")).intValue();
-
-                    int kills = ((Number) p.get("kills")).intValue();
-                    int deaths = ((Number) p.get("deaths")).intValue();
-                    int assists = ((Number) p.get("assists")).intValue();
-
-                    return new MatchSummary(
-                            (boolean) p.get("win"),
-                            kills, deaths, assists,
-                            (String) p.get("championName"),
-                            items, teamMembers, teamChamps, duration,
-                            ((Number) p.get("summoner1Id")).intValue(),
-                            ((Number) p.get("summoner2Id")).intValue(),
-                            mainRuneId, subRuneId,
-                            totalCs, goldEarned, queueId, gameEndTimeStamp,
-                            (kills + assists) - deaths
-                    );
+                if (!puuid.equals(getString(p, "puuid", ""))) {
+                    continue;
                 }
+
+                int myTeamId = getInt(p, "teamId", 0);
+
+                List<Map<String, Object>> sortedParts = participants.stream()
+                        .sorted((p1, p2) -> {
+                            int t1 = getInt(p1, "teamId", 0);
+                            int t2 = getInt(p2, "teamId", 0);
+                            if (t1 == myTeamId && t2 != myTeamId) return -1;
+                            if (t1 != myTeamId && t2 == myTeamId) return 1;
+                            return 0;
+                        })
+                        .toList();
+
+                List<String> teamMembers = sortedParts.stream()
+                        .map(this::buildPlayerDisplayName)
+                        .toList();
+
+                List<String> teamChamps = sortedParts.stream()
+                        .map(part -> getString(part, "championName", "Unknown"))
+                        .toList();
+
+                int totalCs = getInt(p, "totalMinionsKilled", 0)
+                        + getInt(p, "neutralMinionsKilled", 0);
+                int goldEarned = getInt(p, "goldEarned", 0);
+                long gameEndTimeStamp = getLong(info, "gameEndTimestamp", 0L);
+
+                int rawDuration = getInt(info, "gameDuration", 0);
+                if (rawDuration > 10000) {
+                    rawDuration = rawDuration / 1000;
+                }
+                int duration = rawDuration / 60;
+
+                List<Integer> items = Arrays.asList(
+                        getInt(p, "item0", 0),
+                        getInt(p, "item1", 0),
+                        getInt(p, "item2", 0),
+                        getInt(p, "item3", 0),
+                        getInt(p, "item4", 0),
+                        getInt(p, "item5", 0),
+                        getInt(p, "item6", 0)
+                );
+
+                int kills = getInt(p, "kills", 0);
+                int deaths = getInt(p, "deaths", 0);
+                int assists = getInt(p, "assists", 0);
+
+                MatchResultType resultType = resolveResultType(info, p);
+
+                int performanceScore = (resultType == MatchResultType.WIN || resultType == MatchResultType.LOSS)
+                        ? (kills + assists) - deaths
+                        : 0;
+
+                return new MatchSummary(
+                        matchId,
+                        resultType,
+                        kills,
+                        deaths,
+                        assists,
+                        getString(p, "championName", "Unknown"),
+                        items,
+                        teamMembers,
+                        teamChamps,
+                        duration,
+                        getInt(p, "summoner1Id", 0),
+                        getInt(p, "summoner2Id", 0),
+                        extractMainRuneId(p),
+                        extractSubRuneId(p),
+                        totalCs,
+                        goldEarned,
+                        queueId,
+                        gameEndTimeStamp,
+                        performanceScore
+                );
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
+
         return null;
     }
 
     public MatchSummary fetchMatchDetail(String puuid, String matchId) {
         return fetchMatchDetail(puuid, matchId, null);
+    }
+
+    private MatchResultType resolveResultType(Map<String, Object> info, Map<String, Object> participant) {
+        if (getBoolean(participant, "gameEndedInEarlySurrender", false)) {
+            return MatchResultType.REMAKE;
+        }
+
+        Object winValue = participant.get("win");
+        if (winValue instanceof Boolean win) {
+            return win ? MatchResultType.WIN : MatchResultType.LOSS;
+        }
+
+        String endOfGameResult = getString(info, "endOfGameResult", "");
+        if (!endOfGameResult.isBlank() && endOfGameResult.toLowerCase().contains("abort")) {
+            return MatchResultType.INVALID;
+        }
+
+        return MatchResultType.INVALID;
+    }
+
+    private String buildPlayerDisplayName(Map<String, Object> participant) {
+        String riotIdGameName = getString(participant, "riotIdGameName", "");
+        String riotIdTagline = getString(participant, "riotIdTagline", "");
+
+        if (!riotIdGameName.isBlank() && !riotIdTagline.isBlank()) {
+            return riotIdGameName + "#" + riotIdTagline;
+        }
+        if (!riotIdGameName.isBlank()) {
+            return riotIdGameName;
+        }
+
+        String summonerName = getString(participant, "summonerName", "");
+        return summonerName.isBlank() ? "Unknown Player" : summonerName;
+    }
+
+    private int extractMainRuneId(Map<String, Object> participant) {
+        Map<String, Object> perks = asMap(participant.get("perks"));
+        if (perks == null) {
+            return 0;
+        }
+
+        List<Map<String, Object>> styles = asListOfMaps(perks.get("styles"));
+        if (styles.isEmpty()) {
+            return 0;
+        }
+
+        Map<String, Object> primaryStyle = styles.get(0);
+        List<Map<String, Object>> selections = asListOfMaps(primaryStyle.get("selections"));
+        if (selections.isEmpty()) {
+            return 0;
+        }
+
+        return getInt(selections.get(0), "perk", 0);
+    }
+
+    private int extractSubRuneId(Map<String, Object> participant) {
+        Map<String, Object> perks = asMap(participant.get("perks"));
+        if (perks == null) {
+            return 0;
+        }
+
+        List<Map<String, Object>> styles = asListOfMaps(perks.get("styles"));
+        if (styles.size() < 2) {
+            return 0;
+        }
+
+        return getInt(styles.get(1), "style", 0);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> asMap(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            return (Map<String, Object>) map;
+        }
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> asListOfMaps(Object value) {
+        if (!(value instanceof List<?> list)) {
+            return Collections.emptyList();
+        }
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Object item : list) {
+            if (item instanceof Map<?, ?> map) {
+                result.add((Map<String, Object>) map);
+            }
+        }
+        return result;
+    }
+
+    private String getString(Map<String, Object> map, String key, String defaultValue) {
+        Object value = map.get(key);
+        return value == null ? defaultValue : String.valueOf(value);
+    }
+
+    private int getInt(Map<String, Object> map, String key, int defaultValue) {
+        Object value = map.get(key);
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        return defaultValue;
+    }
+
+    private long getLong(Map<String, Object> map, String key, long defaultValue) {
+        Object value = map.get(key);
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        return defaultValue;
+    }
+
+    private boolean getBoolean(Map<String, Object> map, String key, boolean defaultValue) {
+        Object value = map.get(key);
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+        return defaultValue;
     }
 }

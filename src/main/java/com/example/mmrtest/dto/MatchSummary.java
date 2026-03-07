@@ -3,7 +3,8 @@ package com.example.mmrtest.dto;
 import java.util.List;
 
 public class MatchSummary {
-    private boolean win;
+    private String matchId;
+    private MatchResultType resultType = MatchResultType.INVALID;
     private int kills;
     private int deaths;
     private int assists;
@@ -25,11 +26,29 @@ public class MatchSummary {
     public MatchSummary() {
     }
 
-    public MatchSummary(boolean win, int kills, int deaths, int assists, String championName, List<Integer> items,
-                        List<String> teamMembers, List<String> teamChamps, int gameDurationMinutes,
-                        int spell1Id, int spell2Id, int mainRuneId, int subRuneId,
-                        int totalCs, int goldEarned, int queueId, long gameEndTimeStamp, int performanceScore) {
-        this.win = win;
+    public MatchSummary(
+            String matchId,
+            MatchResultType resultType,
+            int kills,
+            int deaths,
+            int assists,
+            String championName,
+            List<Integer> items,
+            List<String> teamMembers,
+            List<String> teamChamps,
+            int gameDurationMinutes,
+            int spell1Id,
+            int spell2Id,
+            int mainRuneId,
+            int subRuneId,
+            int totalCs,
+            int goldEarned,
+            int queueId,
+            long gameEndTimeStamp,
+            int performanceScore
+    ) {
+        this.matchId = matchId;
+        this.resultType = resultType == null ? MatchResultType.INVALID : resultType;
         this.kills = kills;
         this.deaths = deaths;
         this.assists = assists;
@@ -49,12 +68,57 @@ public class MatchSummary {
         this.performanceScore = performanceScore;
     }
 
+    public String getMatchId() {
+        return matchId;
+    }
+
+    public void setMatchId(String matchId) {
+        this.matchId = matchId;
+    }
+
+    public MatchResultType getResultType() {
+        return resultType;
+    }
+
+    public void setResultType(MatchResultType resultType) {
+        this.resultType = resultType == null ? MatchResultType.INVALID : resultType;
+    }
+
     public boolean isWin() {
-        return win;
+        return resultType == MatchResultType.WIN;
     }
 
     public void setWin(boolean win) {
-        this.win = win;
+        this.resultType = win ? MatchResultType.WIN : MatchResultType.LOSS;
+    }
+
+    public boolean isLoss() {
+        return resultType == MatchResultType.LOSS;
+    }
+
+    public boolean isRemake() {
+        return resultType == MatchResultType.REMAKE;
+    }
+
+    public boolean isInvalid() {
+        return resultType == MatchResultType.INVALID;
+    }
+
+    public boolean isCountedGame() {
+        return resultType == MatchResultType.WIN || resultType == MatchResultType.LOSS;
+    }
+
+    public String getDisplayResult() {
+        switch (resultType) {
+            case WIN:
+                return "승리";
+            case LOSS:
+                return "패배";
+            case REMAKE:
+                return "다시하기";
+            default:
+                return "제외";
+        }
     }
 
     public int getKills() {

@@ -15,8 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.util.UriUtils;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriUtils;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -31,8 +31,10 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
 @Service
 public class SummonerService {
+
     @Autowired
     private SummonerHistoryRepository historyRepository;
 
@@ -49,16 +51,31 @@ public class SummonerService {
     private final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
     public int convertTierToMmr(String tier, String rank) {
-        if (tier == null || tier.equals("UNRANKED") || tier.isEmpty())
+        if (tier == null || tier.equals("UNRANKED") || tier.isEmpty()) {
             return 1000;
+        }
 
         Map<String, Integer> base = Map.of(
-                "IRON", 500, "BRONZE", 700, "SILVER", 900, "GOLD", 1100,
-                "PLATINUM", 1300, "EMERALD", 1500, "DIAMOND", 1700,
-                "MASTER", 1900, "GRANDMASTER", 2100, "CHALLENGER", 2300);
-        Map<String, Integer> offset = Map.of("IV", 0, "III", 50, "II", 100, "I", 150);
+                "IRON", 500,
+                "BRONZE", 700,
+                "SILVER", 900,
+                "GOLD", 1100,
+                "PLATINUM", 1300,
+                "EMERALD", 1500,
+                "DIAMOND", 1700,
+                "MASTER", 1900,
+                "GRANDMASTER", 2100,
+                "CHALLENGER", 2300
+        );
+        Map<String, Integer> offset = Map.of(
+                "IV", 0,
+                "III", 50,
+                "II", 100,
+                "I", 150
+        );
 
-        return base.getOrDefault(tier.toUpperCase(), 1000) + offset.getOrDefault(rank.toUpperCase(), 0);
+        return base.getOrDefault(tier.toUpperCase(Locale.ROOT), 1000)
+                + offset.getOrDefault(rank.toUpperCase(Locale.ROOT), 0);
     }
 
     private <T> T riotGet(String url, Class<T> responseType) {
@@ -78,7 +95,7 @@ public class SummonerService {
 
     private Map<String, Object> getAccountByRiotId(String gameName, String tagLine) {
         String encodedGameName = UriUtils.encodePathSegment(gameName, StandardCharsets.UTF_8);
-        String[] tagCandidates = new String[] {
+        String[] tagCandidates = new String[]{
                 tagLine,
                 tagLine.toLowerCase(Locale.ROOT),
                 tagLine.toUpperCase(Locale.ROOT)
@@ -112,6 +129,7 @@ public class SummonerService {
         String realName = accountByPuuidResponse != null && accountByPuuidResponse.get("gameName") != null
                 ? (String) accountByPuuidResponse.get("gameName")
                 : (String) accountResponse.get("gameName");
+
         String summonerUrl = "https://kr.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/" + puuid;
         Map<String, Object> summonerMap = riotGet(summonerUrl, Map.class);
 
@@ -121,7 +139,12 @@ public class SummonerService {
 
         if (summonerMap != null) {
             summoner.setId((String) summonerMap.get("id"));
-            summoner.setSummonerLevel(((Number) summonerMap.get("summonerLevel")).intValue());
+
+            Number summonerLevel = (Number) summonerMap.get("summonerLevel");
+            if (summonerLevel != null) {
+                summoner.setSummonerLevel(summonerLevel.intValue());
+            }
+
             Number profileIconId = (Number) summonerMap.get("profileIconId");
             if (profileIconId != null) {
                 summoner.setProfileIconId(profileIconId.intValue());
@@ -129,7 +152,6 @@ public class SummonerService {
         }
 
         String leagueUrl = "https://kr.api.riotgames.com/lol/league/v4/entries/by-puuid/" + puuid;
-
         Object[] leagueResponse = riotGet(leagueUrl, Object[].class);
 
         if (leagueResponse != null && leagueResponse.length > 0) {
@@ -138,7 +160,8 @@ public class SummonerService {
                 String queueType = (String) data.get("queueType");
                 String tier = (String) data.get("tier");
                 String rankStr = (String) data.get("rank");
-                int lp = ((Number) data.get("leaguePoints")).intValue();
+                Number lpNumber = (Number) data.get("leaguePoints");
+                int lp = lpNumber != null ? lpNumber.intValue() : 0;
 
                 if ("RANKED_SOLO_5x5".equals(queueType)) {
                     summoner.setSoloRank(new SummonerDTO.RankInfo(tier, rankStr, lp));
@@ -150,6 +173,7 @@ public class SummonerService {
                 }
             }
         }
+
         return summoner;
     }
 
@@ -173,6 +197,7 @@ public class SummonerService {
                     () -> riotMatchService.getMatchIds(puuid, 420), executorService);
             CompletableFuture<List<String>> flexIdsFuture = CompletableFuture.supplyAsync(
                     () -> riotMatchService.getMatchIds(puuid, 440), executorService);
+
             soloMatchIds = soloIdsFuture.join();
             flexMatchIds = flexIdsFuture.join();
         } else if (needSolo) {
@@ -188,10 +213,11 @@ public class SummonerService {
         List<MatchSummary> flexMatchDetails = Collections.emptyList();
 
         if (needSolo && needFlex) {
-            CompletableFuture<List<MatchSummary>> soloDetailsFuture = CompletableFuture
-                    .supplyAsync(() -> riotMatchService.getMatchSummaries(puuid, resolvedSoloMatchIds, 420), executorService);
-            CompletableFuture<List<MatchSummary>> flexDetailsFuture = CompletableFuture
-                    .supplyAsync(() -> riotMatchService.getMatchSummaries(puuid, resolvedFlexMatchIds, 440), executorService);
+            CompletableFuture<List<MatchSummary>> soloDetailsFuture = CompletableFuture.supplyAsync(
+                    () -> riotMatchService.getMatchSummaries(puuid, resolvedSoloMatchIds, 420), executorService);
+            CompletableFuture<List<MatchSummary>> flexDetailsFuture = CompletableFuture.supplyAsync(
+                    () -> riotMatchService.getMatchSummaries(puuid, resolvedFlexMatchIds, 440), executorService);
+
             soloMatchDetails = soloDetailsFuture.join();
             flexMatchDetails = flexDetailsFuture.join();
         } else if (needSolo) {
@@ -220,8 +246,8 @@ public class SummonerService {
         result.put("resolvedQueue", normalizedQueue);
 
         Map<String, Object> counts = new HashMap<>();
-        counts.put("solo", soloMatchDetails.size());
-        counts.put("flex", flexMatchDetails.size());
+        counts.put("solo", buildQueueCounts(soloMatchDetails));
+        counts.put("flex", buildQueueCounts(flexMatchDetails));
         result.put("counts", counts);
 
         result.put("soloSummary", buildQueueSummary(soloMatchDetails));
@@ -232,39 +258,103 @@ public class SummonerService {
 
     private Map<String, Object> buildQueueSummary(List<MatchSummary> matchDetails) {
         Map<String, Object> summary = new HashMap<>();
-        if (matchDetails == null || matchDetails.isEmpty()) {
-            summary.put("wins", 0);
-            summary.put("losses", 0);
-            summary.put("winRate", 0);
-            summary.put("kda", "0.00");
-            return summary;
-        }
 
         int wins = 0;
+        int losses = 0;
+        int remakes = 0;
+        int invalid = 0;
+
         int totalKills = 0;
         int totalDeaths = 0;
         int totalAssists = 0;
+        int countedGames = 0;
 
-        for (MatchSummary match : matchDetails) {
-            if (match.isWin()) {
-                wins++;
+        if (matchDetails != null) {
+            for (MatchSummary match : matchDetails) {
+                if (match == null) {
+                    continue;
+                }
+
+                if (match.isRemake()) {
+                    remakes++;
+                    continue;
+                }
+
+                if (match.isInvalid()) {
+                    invalid++;
+                    continue;
+                }
+
+                if (!match.isCountedGame()) {
+                    continue;
+                }
+
+                countedGames++;
+
+                if (match.isWin()) {
+                    wins++;
+                } else {
+                    losses++;
+                }
+
+                totalKills += match.getKills();
+                totalDeaths += match.getDeaths();
+                totalAssists += match.getAssists();
             }
-            totalKills += match.getKills();
-            totalDeaths += match.getDeaths();
-            totalAssists += match.getAssists();
         }
 
-        int losses = matchDetails.size() - wins;
-        int winRate = (int) Math.round((wins * 100.0) / matchDetails.size());
-        double kdaValue = totalDeaths == 0
-                ? (totalKills + totalAssists)
-                : ((double) (totalKills + totalAssists) / totalDeaths);
+        int winRate = countedGames == 0
+                ? 0
+                : (int) Math.round((wins * 100.0) / countedGames);
+
+        double kdaValue = countedGames == 0
+                ? 0.0
+                : (totalDeaths == 0
+                    ? (totalKills + totalAssists)
+                    : ((double) (totalKills + totalAssists) / totalDeaths));
 
         summary.put("wins", wins);
         summary.put("losses", losses);
+        summary.put("remakes", remakes);
+        summary.put("invalid", invalid);
+        summary.put("countedGames", countedGames);
+        summary.put("totalGames", matchDetails == null ? 0 : matchDetails.size());
         summary.put("winRate", winRate);
         summary.put("kda", String.format(Locale.US, "%.2f", kdaValue));
+
         return summary;
+    }
+
+    private Map<String, Object> buildQueueCounts(List<MatchSummary> matchDetails) {
+        int total = 0;
+        int counted = 0;
+        int remakes = 0;
+        int invalid = 0;
+
+        if (matchDetails != null) {
+            for (MatchSummary match : matchDetails) {
+                if (match == null) {
+                    continue;
+                }
+
+                total++;
+
+                if (match.isRemake()) {
+                    remakes++;
+                } else if (match.isInvalid()) {
+                    invalid++;
+                } else if (match.isCountedGame()) {
+                    counted++;
+                }
+            }
+        }
+
+        Map<String, Object> counts = new HashMap<>();
+        counts.put("total", total);
+        counts.put("counted", counted);
+        counts.put("remakes", remakes);
+        counts.put("invalid", invalid);
+        return counts;
     }
 
     private String normalizeQueue(String queue) {
@@ -277,7 +367,8 @@ public class SummonerService {
 
     private int calculateSoloLpChange(SummonerDTO currentSummoner, String puuid) {
         Optional<SummonerHistory> lastRecord = historyRepository.findFirstByPuuidOrderBySearchTimeDesc(puuid);
-        if (currentSummoner.getSoloRank() != null && lastRecord.isPresent()
+        if (currentSummoner.getSoloRank() != null
+                && lastRecord.isPresent()
                 && lastRecord.get().getTier().equals(currentSummoner.getSoloRank().getTier())) {
             return currentSummoner.getSoloRank().getLeaguePoints() - lastRecord.get().getLeaguePoints();
         }

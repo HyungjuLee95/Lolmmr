@@ -68,6 +68,9 @@ export default function App() {
     return 'text-gray-400';
   };
 
+  const remakes = data?.summary?.remakes || 0;
+  const invalid = data?.summary?.invalid || 0;
+
   if (!hasSearched) {
     return (
       <div className="min-h-screen bg-[#121212] text-gray-200 flex items-center justify-center px-4">
@@ -235,6 +238,11 @@ export default function App() {
                     <span className="text-[10px] text-gray-400">
                       {data?.summary?.wins}승 {data?.summary?.losses}패
                     </span>
+                    {remakes > 0 && (
+                      <span className="text-[10px] text-yellow-400 mt-0.5">
+                        다시하기 {remakes}회
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -247,6 +255,11 @@ export default function App() {
                   {data?.summary?.kda}
                 </div>
                 <div className="text-[10px] text-gray-500 mt-1">최근 2경기 기준</div>
+                {(remakes > 0 || invalid > 0) && (
+                  <div className="text-[10px] text-yellow-400 mt-1">
+                    집계 제외 {remakes + invalid}경기
+                  </div>
+                )}
               </div>
             </div>
 
@@ -257,40 +270,46 @@ export default function App() {
               </div>
 
               <div className="p-1.5">
-                {data?.summary?.recentChampions?.map((champ, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-3 p-2.5 hover:bg-[#27272a] rounded-lg transition-colors cursor-default"
-                  >
-                    <img
-                      src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/champion/${champ.name}.png`}
-                      alt={champ.name}
-                      className="w-8 h-8 rounded-full bg-gray-700"
-                    />
+                {data?.summary?.recentChampions?.length ? (
+                  data.summary.recentChampions.map((champ, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-3 p-2.5 hover:bg-[#27272a] rounded-lg transition-colors cursor-default"
+                    >
+                      <img
+                        src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/champion/${champ.name}.png`}
+                        alt={champ.name}
+                        className="w-8 h-8 rounded-full bg-gray-700"
+                      />
 
-                    <div className="flex-1">
-                      <div className="text-sm font-semibold text-gray-200 leading-tight">
-                        {champ.name}
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-gray-200 leading-tight">
+                          {champ.name}
+                        </div>
+                        <div className="text-[10px] text-gray-400 mt-0.5">
+                          {champ.games} 게임
+                        </div>
                       </div>
-                      <div className="text-[10px] text-gray-400 mt-0.5">
-                        {champ.games} 게임
+
+                      <div className="text-right">
+                        <div
+                          className={`text-sm font-semibold ${
+                            champ.winRate >= 60 ? 'text-red-400' : 'text-gray-300'
+                          }`}
+                        >
+                          {champ.winRate}%
+                        </div>
+                        <div className="text-[10px] text-gray-400">
+                          {champ.kda} 평점
+                        </div>
                       </div>
                     </div>
-
-                    <div className="text-right">
-                      <div
-                        className={`text-sm font-semibold ${
-                          champ.winRate >= 60 ? 'text-red-400' : 'text-gray-300'
-                        }`}
-                      >
-                        {champ.winRate}%
-                      </div>
-                      <div className="text-[10px] text-gray-400">
-                        {champ.kda} 평점
-                      </div>
-                    </div>
+                  ))
+                ) : (
+                  <div className="p-4 text-xs text-gray-500 text-center">
+                    표시할 챔피언 데이터가 없습니다.
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </div>

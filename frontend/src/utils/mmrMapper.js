@@ -2,6 +2,25 @@ import { MOCK_DATA, POSITION_FALLBACK, QUEUE_LABEL } from '../data/mmrMockData';
 
 const RECENT_MATCH_LIMIT = 2;
 
+const RESULT_META = {
+  WIN: {
+    label: '승리',
+    shortLabel: '승리',
+  },
+  LOSS: {
+    label: '패배',
+    shortLabel: '패배',
+  },
+  REMAKE: {
+    label: '다시하기',
+    shortLabel: '다시하기',
+  },
+  INVALID: {
+    label: '제외',
+    shortLabel: '제외',
+  },
+};
+
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 const hashSeed = (text) => {
@@ -17,6 +36,19 @@ const seededRand = (seed, offset = 0) => {
   const x = Math.sin(seed * 12.9898 + (offset + 1) * 78.233) * 43758.5453;
   return x - Math.floor(x);
 };
+
+const normalizeResultType = (resultType, win) => {
+  if (typeof resultType === 'string' && RESULT_META[resultType]) {
+    return resultType;
+  }
+  return win ? 'WIN' : 'LOSS';
+};
+
+const isCountedResult = (resultType) => resultType === 'WIN' || resultType === 'LOSS';
+
+const isWinResult = (resultType) => resultType === 'WIN';
+
+const getResultMeta = (resultType) => RESULT_META[resultType] || RESULT_META.INVALID;
 
 export const formatDuration = (minutes) => {
   const safeMinutes = Number.isFinite(minutes) ? minutes : 0;
@@ -60,8 +92,16 @@ const buildGrowthTimeline = ({
 }) => {
   const points = buildTimelinePoints(durationMinutes);
   const stageCount = points.length - 1;
-  const slumpIndex = clamp(Math.floor(seededRand(seed, 2) * stageCount), 1, Math.max(stageCount - 2, 1));
-  const spikeIndex = clamp(Math.floor(seededRand(seed, 3) * stageCount), 1, Math.max(stageCount - 2, 1));
+  const slumpIndex = clamp(
+    Math.floor(seededRand(seed, 2) * stageCount),
+    1,
+    Math.max(stageCount - 2, 1),
+  );
+  const spikeIndex = clamp(
+    Math.floor(seededRand(seed, 3) * stageCount),
+    1,
+    Math.max(stageCount - 2, 1),
+  );
 
   const weights = [];
   for (let i = 0; i < stageCount; i += 1) {
@@ -106,21 +146,56 @@ const buildGrowthTimeline = ({
   });
 };
 
+const buildVisibleSummary = (matchDetails) => {
+  const countedMatches = matchDetails.filter((match) => isCountedResult(normalizeResultType(match.resultType, match.win)));
+  const wins = countedMatches.filter((match) => isWinResult(normalizeResultType(match.resultType, match.win))).length;
+  const losses = countedMatches.length - wins;
+  const remakes = matchDetails.filter((match) => normalizeResultType(match.resultType, match.win) === 'REMAKE').length;
+  const invalid = matchDetails.filter((match) => normalizeResultType(match.resultType, match.win) === 'INVALID').length;
+
+  const totalKills = countedMatches.reduce((sum, match) => sum + (match.kills || 0), 0);
+  const totalDeaths = countedMatches.reduce((sum, match) => sum + (match.deaths || 0), 0);
+  const totalAssists = countedMatches.reduce((sum, match) => sum + (match.assists || 0), 0);
+
+  const winRate = countedMatches.length > 0
+    ? Math.round((wins * 100) / countedMatches.length)
+    : 0;
+
+  const kdaValue = countedMatches.length === 0
+    ? 0
+    : (totalDeaths === 0
+        ? totalKills + totalAssists
+        : (totalKills + totalAssists) / totalDeaths);
+
+  return {
+    wins,
+    losses,
+    remakes,
+    invalid,
+    countedGames: countedMatches.length,
+    totalGames: matchDetails.length,
+    winRate,
+    kda: kdaValue.toFixed(2),
+  };
+};
+
 export const buildRecentChampions = (matchDetails) => {
   const stats = new Map();
 
-  matchDetails.forEach((match) => {
-    const key = match.championName || 'Unknown';
-    if (!stats.has(key)) {
-      stats.set(key, { name: key, games: 0, wins: 0, kills: 0, deaths: 0, assists: 0 });
-    }
-    const row = stats.get(key);
-    row.games += 1;
-    if (match.win) row.wins += 1;
-    row.kills += match.kills || 0;
-    row.deaths += match.deaths || 0;
-    row.assists += match.assists || 0;
-  });
+  matchDetails
+    .filter((match) => isCountedResult(normalizeResultType(match.resultType, match.win)))
+    .forEach((match) => {
+      const key = match.championName || 'Unknown';
+      if (!stats.has(key)) {
+        stats.set(key, { name: key, games: 0, wins: 0, kills: 0, deaths: 0, assists: 0 });
+      }
+      const row = stats.get(key);
+      row.games += 1;
+      if (isWinResult(normalizeResultType(match.resultType, match.win))) row.wins += 1;
+      row.kills += match.kills || 0;
+      row.deaths += match.deaths || 0;
+      row.assists += match.assists || 0;
+    });
 
   return Array.from(stats.values())
     .sort((a, b) => b.games - a.games)
@@ -145,7 +220,11 @@ const buildPlayerStats = ({ idx, meIndex, match, seed }) => {
       assists: match.assists || 0,
       cs: match.totalCs || 0,
       gold: match.goldEarned || 0,
-      damage: Math.max((match.performanceScore || 1) * 1300, Math.round((match.goldEarned || 0) * 1.15), 9000),
+      damage: Math.max(
+        (match.performanceScore || 1) * 1300,
+        Math.round((match.goldEarned || 0) * 1.15),
+        9000,
+      ),
       items: (match.items || []).slice(0, 6),
       isMe: true,
     };
@@ -178,11 +257,18 @@ const buildPlayerStats = ({ idx, meIndex, match, seed }) => {
 };
 
 const buildAnalysisComments = (player, match) => {
+  const resultType = normalizeResultType(match.resultType, match.win);
   const kda = player.deaths === 0
     ? player.kills + player.assists
     : (player.kills + player.assists) / player.deaths;
 
   const comments = [];
+
+  if (resultType === 'REMAKE') {
+    comments.push({ type: 'warning', text: '다시하기 경기라 분석 신뢰도가 낮아 참고용으로만 보세요.' });
+    comments.push({ type: 'warning', text: '이 경기는 승패 및 자체 점수 계산에서 제외됩니다.' });
+    return comments;
+  }
 
   if (kda >= 4) {
     comments.push({ type: 'good', text: `KDA ${kda.toFixed(2)}로 교전 영향력이 높았습니다.` });
@@ -200,7 +286,7 @@ const buildAnalysisComments = (player, match) => {
 
   if (!player.isMe) {
     comments.push({ type: 'warning', text: '타 플레이어 지표는 공개 매치 정보를 기반으로 추정한 값입니다.' });
-  } else if (!match.win) {
+  } else if (resultType === 'LOSS') {
     comments.push({ type: 'bad', text: '패배 경기로 오브젝트 타이밍에서 손실이 컸습니다.' });
   }
 
@@ -268,14 +354,22 @@ export const buildOverviewPlayers = (match, summonerName) => {
   };
 };
 
-export const toUiMatch = (match, summonerName, index) => {
+export const toUiMatch = (match, summonerName, index, puuid) => {
+  const resultType = normalizeResultType(match.resultType, match.win);
+  const resultMeta = getResultMeta(resultType);
   const overview = buildOverviewPlayers(match, summonerName);
   const allPlayers = overview.blue.concat(overview.red);
   const myParticipant = allPlayers.find((p) => p.isMe) || allPlayers[0];
 
   return {
     id: `${match.gameEndTimeStamp || Date.now()}_${index}`,
-    win: !!match.win,
+    matchId: match.matchId,
+    puuid,
+    win: resultType === 'WIN',
+    isRemake: resultType === 'REMAKE',
+    isCountedGame: isCountedResult(resultType),
+    resultType,
+    resultLabel: resultMeta.label,
     gameDuration: formatDuration(match.gameDurationMinutes),
     gameType: QUEUE_LABEL[match.queueId] || `큐 ${match.queueId || '-'}`,
     timeAgo: formatTimeAgo(match.gameEndTimeStamp),
@@ -293,13 +387,15 @@ export const toUiMatch = (match, summonerName, index) => {
     },
     overview: {
       blueTeam: {
-        isWin: !!match.win,
+        isWin: resultType === 'WIN',
+        hasWinner: isCountedResult(resultType),
         kills: overview.blue.reduce((sum, p) => sum + (p.kills || 0), 0),
         gold: `${(overview.blue.reduce((sum, p) => sum + (p.gold || 0), 0) / 1000).toFixed(1)}k`,
         players: overview.blue,
       },
       redTeam: {
-        isWin: !match.win,
+        isWin: resultType === 'LOSS',
+        hasWinner: isCountedResult(resultType),
         kills: overview.red.reduce((sum, p) => sum + (p.kills || 0), 0),
         gold: `${(overview.red.reduce((sum, p) => sum + (p.gold || 0), 0) / 1000).toFixed(1)}k`,
         players: overview.red,
@@ -307,7 +403,7 @@ export const toUiMatch = (match, summonerName, index) => {
     },
     teamMembers: allPlayers.map((player) => {
       const seed = hashSeed(`${match.gameEndTimeStamp}-${player.id}-${player.name}`);
-      const playerAnalysis = buildPlayerAnalysis({ player, match, seed });
+      const playerAnalysis = buildPlayerAnalysis({ player, match: { ...match, resultType }, seed });
 
       return {
         participantId: player.id,
@@ -328,8 +424,9 @@ export const mapApiToUiData = (apiData, preferredQueue = 'solo') => {
   }
 
   const queueData = apiData.queues[preferredQueue] || apiData.queues.solo || apiData.queues.flex;
-  const matchDetails = (queueData?.matchDetails || []).slice(0, RECENT_MATCH_LIMIT);
-  const queueSummary = queueData?.summary || { wins: 0, losses: 0, winRate: 0, kda: '0.00' };
+  const rawMatches = queueData?.matchDetails || [];
+  const visibleMatches = rawMatches.slice(0, RECENT_MATCH_LIMIT);
+  const visibleSummary = buildVisibleSummary(visibleMatches);
   const summonerName = apiData.summoner.name || 'Unknown';
 
   return {
@@ -338,17 +435,25 @@ export const mapApiToUiData = (apiData, preferredQueue = 'solo') => {
       summonerLevel: apiData.summoner.summonerLevel || 0,
       profileIconId: apiData.summoner.profileIconId || MOCK_DATA.summoner.profileIconId,
       scoreDetails: {
-        totalScore: Number(queueData?.scoreResult?.totalScore || queueData?.scoreResult?.currentScore || 0).toFixed(1),
+        totalScore: Number(
+          queueData?.scoreResult?.totalScore
+          || queueData?.scoreResult?.currentScore
+          || 0,
+        ).toFixed(1),
         grade: queueData?.scoreResult?.grade || 'C',
       },
     },
     summary: {
-      wins: queueSummary.wins || 0,
-      losses: queueSummary.losses || 0,
-      winRate: queueSummary.winRate || 0,
-      kda: queueSummary.kda || '0.00',
-      recentChampions: buildRecentChampions(matchDetails),
+      wins: visibleSummary.wins,
+      losses: visibleSummary.losses,
+      remakes: visibleSummary.remakes,
+      invalid: visibleSummary.invalid,
+      countedGames: visibleSummary.countedGames,
+      totalGames: visibleSummary.totalGames,
+      winRate: visibleSummary.winRate,
+      kda: visibleSummary.kda,
+      recentChampions: buildRecentChampions(visibleMatches),
     },
-    matches: matchDetails.map((match, index) => toUiMatch(match, summonerName, index)),
+    matches: visibleMatches.map((match, index) => toUiMatch(match, summonerName, index, apiData.summoner.puuid)),
   };
 };
