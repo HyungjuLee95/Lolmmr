@@ -1,33 +1,96 @@
 package com.example.mmrtest.dto;
 
-import lombok.Getter;
-import lombok.Setter;
-
 import java.util.List;
 
-@Getter
-@Setter
 public class MatchDTO {
     private Metadata metadata;
     private Info info;
 
-    @Getter @Setter
-    public static class Metadata {
-        private String matchId;
+    public Metadata getMetadata() {
+        return metadata;
     }
 
-    @Getter @Setter
+    public void setMetadata(Metadata metadata) {
+        this.metadata = metadata;
+    }
+
+    public Info getInfo() {
+        return info;
+    }
+
+    public void setInfo(Info info) {
+        this.info = info;
+    }
+
+    public static class Metadata {
+        private String matchId;
+
+        public String getMatchId() {
+            return matchId;
+        }
+
+        public void setMatchId(String matchId) {
+            this.matchId = matchId;
+        }
+    }
+
     public static class Info {
         private List<Participant> participants;
         private String gameMode;
+
+        public List<Participant> getParticipants() {
+            return participants;
+        }
+
+        public void setParticipants(List<Participant> participants) {
+            this.participants = participants;
+        }
+
+        public String getGameMode() {
+            return gameMode;
+        }
+
+        public void setGameMode(String gameMode) {
+            this.gameMode = gameMode;
+        }
     }
 
-    @Getter @Setter
     public static class Participant {
         private String puuid;
         private String summonerName;
-        private int win; // 승리 여부 (1이면 승, 0이면 패 또는 boolean)
-        private boolean winBoolean; // 최근 API는 boolean으로 줌
-        // MMR 계산에 필요한 데이터들 (KDA, 티어 등등)
+        private int win;
+        private boolean winBoolean;
+
+        public String getPuuid() {
+            return puuid;
+        }
+
+        public void setPuuid(String puuid) {
+            this.puuid = puuid;
+        }
+
+        public String getSummonerName() {
+            return summonerName;
+        }
+
+        public void setSummonerName(String summonerName) {
+            this.summonerName = summonerName;
+        }
+
+        public int getWin() {
+            return win;
+        }
+
+        public void setWin(int win) {
+            this.win = win;
+        }
+
+        public boolean isWinBoolean() {
+            return winBoolean;
+        }
+
+        public void setWinBoolean(boolean winBoolean) {
+            this.winBoolean = winBoolean;
+        }
     }
 }
