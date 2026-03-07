@@ -33,7 +33,7 @@ riot:
 # Development Mode Options
 dev:
   allowlist:
-    enabled: true
+    enabled: false
     riotIds:
       - "guny#kr1"
       - "욕설멈춰i#kr1"
