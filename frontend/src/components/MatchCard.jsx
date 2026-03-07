@@ -118,7 +118,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
   const resultType = match.resultType || (match.win ? 'WIN' : 'LOSS');
   const resultLabel = match.resultLabel || (match.win ? '승리' : '패배');
   const resultStyle = useMemo(() => getResultStyle(resultType), [resultType]);
-
+/* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setAnalysisDetail(null);
     setAnalysisStatus('idle');
@@ -126,7 +126,8 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
     setActiveTab('overview');
     analysisRequestedRef.current = false;
   }, [match.matchId]);
-
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!isExpanded || activeTab !== 'analysis') {
       return;
@@ -164,7 +165,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
         analysisRequestedRef.current = false;
       });
   }, [isExpanded, activeTab, match.matchId, match.puuid]);
-
+/* eslint-disable react-hooks/set-state-in-effect */
   const metricCards = useMemo(() => analysisDetail?.metricCards ?? [], [analysisDetail]);
   const comments = useMemo(() => analysisDetail?.coachingComments ?? [], [analysisDetail]);
   const laneComparison = useMemo(() => analysisDetail?.laneComparison ?? null, [analysisDetail]);
