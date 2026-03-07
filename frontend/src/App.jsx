@@ -24,6 +24,11 @@ export default function App() {
         },
       });
 
+      const contentType = response.headers?.['content-type'] || '';
+      if (!contentType.includes('application/json') || typeof response.data !== 'object') {
+        throw new Error('API 응답 형식이 올바르지 않습니다. (프록시/백엔드 연결 확인)');
+      }
+
       if (response.data?.error) {
         throw new Error(response.data.error);
       }
