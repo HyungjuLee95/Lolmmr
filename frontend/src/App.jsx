@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import axios from 'axios';
 import MatchCard from './components/MatchCard';
 import { Flame, Search, Trophy } from './components/icons';
@@ -6,11 +6,12 @@ import { MOCK_DATA } from './data/mmrMockData';
 import { mapApiToUiData } from './utils/mmrMapper';
 
 export default function App() {
-  const [searchInput, setSearchInput] = useState('Hide on bush#KR1');
+  const [searchInput, setSearchInput] = useState('');
   const [data, setData] = useState(MOCK_DATA);
   const [expandedMatchId, setExpandedMatchId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [hasSearched, setHasSearched] = useState(false);
 
   const fetchMmrData = useCallback(async (queryName) => {
     try {
@@ -35,18 +36,28 @@ export default function App() {
 
       setData(mapApiToUiData(response.data, 'solo'));
       setExpandedMatchId(null);
+      setHasSearched(true);
+      return true;
     } catch (error) {
       console.error(error);
-      setData(MOCK_DATA);
       setErrorMessage(error?.message || 'API 호출 중 오류가 발생했습니다.');
+      return false;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchMmrData('Hide on bush#KR1');
-  }, [fetchMmrData]);
+  const handleSearchSubmit = async (event) => {
+    event.preventDefault();
+    const trimmed = searchInput.trim();
+
+    if (!trimmed) {
+      setErrorMessage('소환사명을 입력해주세요.');
+      return;
+    }
+
+    await fetchMmrData(trimmed);
+  };
 
   const getGradeColor = (grade = '') => {
     if (grade.startsWith('S')) {
@@ -57,6 +68,45 @@ export default function App() {
     return 'text-gray-400';
   };
 
+  if (!hasSearched) {
+    return (
+      <div className="min-h-screen bg-[#121212] text-gray-200 flex items-center justify-center px-4">
+        <div className="w-full max-w-2xl bg-[#18181b] border border-gray-800 rounded-2xl p-8 md:p-10 shadow-2xl">
+          <div className="flex items-center justify-center gap-3 text-3xl font-black text-blue-500 mb-6">
+            <Trophy className="w-9 h-9" />
+            <span>LOLMMR</span>
+          </div>
+
+          <p className="text-center text-gray-400 text-sm md:text-base mb-6">
+            소환사명을 검색하면 최근 2경기 기반 MMR 분석 대시보드로 이동합니다.
+          </p>
+
+          <form className="relative" onSubmit={handleSearchSubmit}>
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="예: 욕설멈춰i#KR1"
+              className="w-full bg-[#27272a] text-white px-4 py-3 pl-11 rounded-lg border border-gray-700 focus:outline-none focus:border-blue-500"
+            />
+            <Search className="w-4 h-4 text-gray-400 absolute left-4 top-3.5" />
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="mt-3 w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800/50 text-white px-4 py-2.5 rounded-lg font-semibold transition-colors"
+            >
+              {isLoading ? '검색 중...' : '검색하기'}
+            </button>
+          </form>
+
+          {errorMessage && (
+            <div className="text-xs md:text-sm text-amber-300 mt-4 text-center">{errorMessage}</div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#121212] text-gray-200 font-sans pb-20">
       <header className="bg-[#18181b] border-b border-gray-800 sticky top-0 z-50">
@@ -66,25 +116,12 @@ export default function App() {
             <span>LOLMMR</span>
           </div>
 
-          <form
-            className="w-full md:w-[400px] relative"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const trimmed = searchInput.trim();
-
-              if (!trimmed) {
-                setErrorMessage('소환사명을 입력해주세요.');
-                return;
-              }
-
-              fetchMmrData(trimmed);
-            }}
-          >
+          <form className="w-full md:w-[430px] relative" onSubmit={handleSearchSubmit}>
             <input
               type="text"
               value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="소환사명, 챔피언..."
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="소환사명#태그"
               className="w-full bg-[#27272a] text-white px-4 py-2.5 pl-10 rounded-lg border border-gray-700 focus:outline-none focus:border-blue-500 text-sm"
             />
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3.5" />
@@ -92,9 +129,21 @@ export default function App() {
               type="submit"
               className="absolute right-2 top-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium"
             >
-              검색
+              {isLoading ? '검색중' : '검색'}
             </button>
           </form>
+
+          <button
+            type="button"
+            onClick={() => {
+              setHasSearched(false);
+              setErrorMessage('');
+              setExpandedMatchId(null);
+            }}
+            className="text-xs text-gray-300 border border-gray-700 rounded px-3 py-2 hover:bg-[#27272a]"
+          >
+            새 검색
+          </button>
         </div>
 
         {(isLoading || errorMessage) && (
@@ -157,7 +206,7 @@ export default function App() {
 
             <div className="bg-[#1c1c1f] rounded-xl p-5 border border-gray-800 flex items-center justify-between">
               <div className="flex flex-col items-center">
-                <span className="text-xs text-gray-400 mb-2">최근 20게임 승률</span>
+                <span className="text-xs text-gray-400 mb-2">최근 2게임 승률</span>
                 <div className="relative w-20 h-20 flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90">
                     <circle
@@ -197,7 +246,7 @@ export default function App() {
                 <div className="text-xl font-bold text-blue-400">
                   {data?.summary?.kda}
                 </div>
-                <div className="text-[10px] text-gray-500 mt-1">킬관여율 55%</div>
+                <div className="text-[10px] text-gray-500 mt-1">최근 2경기 기준</div>
               </div>
             </div>
 
@@ -258,9 +307,11 @@ export default function App() {
               />
             ))}
 
-            <button className="w-full py-3 bg-[#1c1c1f] hover:bg-[#27272a] border border-gray-800 rounded-lg text-sm font-medium text-gray-300 transition-colors mt-2">
-              더 보기
-            </button>
+            {!data?.matches?.length && (
+              <div className="w-full py-10 bg-[#1c1c1f] border border-gray-800 rounded-lg text-sm text-gray-400 text-center">
+                최근 전적이 없습니다.
+              </div>
+            )}
           </div>
         </div>
       </main>
