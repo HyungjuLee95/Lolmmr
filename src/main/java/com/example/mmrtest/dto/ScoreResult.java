@@ -1,7 +1,9 @@
 package com.example.mmrtest.dto;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ScoreResult {
     private int currentScore;
@@ -9,9 +11,12 @@ public class ScoreResult {
     private String grade;
     private int baseScore;
     private int countedGames;
+    private double averageDelta;
+    private double averagePerformance;
     private List<Integer> scoreHistory = new ArrayList<>();
     private List<Integer> scoreDeltaHistory = new ArrayList<>();
     private List<Integer> performanceHistory = new ArrayList<>();
+    private Map<String, RoleStat> roleStats = new LinkedHashMap<>();
 
     public ScoreResult() {
     }
@@ -29,18 +34,24 @@ public class ScoreResult {
             String grade,
             int baseScore,
             int countedGames,
+            double averageDelta,
+            double averagePerformance,
             List<Integer> scoreHistory,
             List<Integer> scoreDeltaHistory,
-            List<Integer> performanceHistory
+            List<Integer> performanceHistory,
+            Map<String, RoleStat> roleStats
     ) {
         this.currentScore = currentScore;
         this.totalScore = totalScore;
         this.grade = grade;
         this.baseScore = baseScore;
         this.countedGames = countedGames;
+        this.averageDelta = averageDelta;
+        this.averagePerformance = averagePerformance;
         this.scoreHistory = scoreHistory;
         this.scoreDeltaHistory = scoreDeltaHistory;
         this.performanceHistory = performanceHistory;
+        this.roleStats = roleStats;
     }
 
     public int getCurrentScore() {
@@ -83,6 +94,22 @@ public class ScoreResult {
         this.countedGames = countedGames;
     }
 
+    public double getAverageDelta() {
+        return averageDelta;
+    }
+
+    public void setAverageDelta(double averageDelta) {
+        this.averageDelta = averageDelta;
+    }
+
+    public double getAveragePerformance() {
+        return averagePerformance;
+    }
+
+    public void setAveragePerformance(double averagePerformance) {
+        this.averagePerformance = averagePerformance;
+    }
+
     public List<Integer> getScoreHistory() {
         return scoreHistory;
     }
@@ -105,5 +132,61 @@ public class ScoreResult {
 
     public void setPerformanceHistory(List<Integer> performanceHistory) {
         this.performanceHistory = performanceHistory;
+    }
+
+    public Map<String, RoleStat> getRoleStats() {
+        return roleStats;
+    }
+
+    public void setRoleStats(Map<String, RoleStat> roleStats) {
+        this.roleStats = roleStats;
+    }
+
+    public static class RoleStat {
+        private int games;
+        private double averagePerformance;
+        private double averageDelta;
+
+        public RoleStat() {
+        }
+
+        public RoleStat(int games, double averagePerformance, double averageDelta) {
+            this.games = games;
+            this.averagePerformance = averagePerformance;
+            this.averageDelta = averageDelta;
+        }
+
+        public int getGames() {
+            return games;
+        }
+
+        public void setGames(int games) {
+            this.games = games;
+        }
+
+        public double getAveragePerformance() {
+            return averagePerformance;
+        }
+
+        public void setAveragePerformance(double averagePerformance) {
+            this.averagePerformance = averagePerformance;
+        }
+
+        public double getAverageDelta() {
+            return averageDelta;
+        }
+
+        public void setAverageDelta(double averageDelta) {
+            this.averageDelta = averageDelta;
+        }
+        @Override
+        public String toString() {
+            return "RoleStat{" +
+                    "games=" + games +
+                    ", averagePerformance=" + averagePerformance +
+                    ", averageDelta=" + averageDelta +
+                    '}';
+        }
+
     }
 }
