@@ -1,17 +1,22 @@
 package com.example.mmrtest.dto;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class MatchSummary {
+
     private String matchId;
-    private MatchResultType resultType = MatchResultType.INVALID;
+    private MatchResultType resultType;
+
     private int kills;
     private int deaths;
     private int assists;
     private String championName;
-    private List<Integer> items;
-    private List<String> teamMembers;
-    private List<String> teamChamps;
+
+    private List<Integer> items = new ArrayList<>();
+    private List<String> teamMembers = new ArrayList<>();
+    private List<String> teamChamps = new ArrayList<>();
+
     private int gameDurationMinutes;
     private int spell1Id;
     private int spell2Id;
@@ -23,49 +28,14 @@ public class MatchSummary {
     private long gameEndTimeStamp;
     private int performanceScore;
 
-    public MatchSummary() {
-    }
+    private boolean invalid;
+    private boolean countedGame;
+    private boolean remake;
+    private boolean win;
+    private String displayResult;
+    private boolean loss;
 
-    public MatchSummary(
-            String matchId,
-            MatchResultType resultType,
-            int kills,
-            int deaths,
-            int assists,
-            String championName,
-            List<Integer> items,
-            List<String> teamMembers,
-            List<String> teamChamps,
-            int gameDurationMinutes,
-            int spell1Id,
-            int spell2Id,
-            int mainRuneId,
-            int subRuneId,
-            int totalCs,
-            int goldEarned,
-            int queueId,
-            long gameEndTimeStamp,
-            int performanceScore
-    ) {
-        this.matchId = matchId;
-        this.resultType = resultType == null ? MatchResultType.INVALID : resultType;
-        this.kills = kills;
-        this.deaths = deaths;
-        this.assists = assists;
-        this.championName = championName;
-        this.items = items;
-        this.teamMembers = teamMembers;
-        this.teamChamps = teamChamps;
-        this.gameDurationMinutes = gameDurationMinutes;
-        this.spell1Id = spell1Id;
-        this.spell2Id = spell2Id;
-        this.mainRuneId = mainRuneId;
-        this.subRuneId = subRuneId;
-        this.totalCs = totalCs;
-        this.goldEarned = goldEarned;
-        this.queueId = queueId;
-        this.gameEndTimeStamp = gameEndTimeStamp;
-        this.performanceScore = performanceScore;
+    public MatchSummary() {
     }
 
     public String getMatchId() {
@@ -81,44 +51,7 @@ public class MatchSummary {
     }
 
     public void setResultType(MatchResultType resultType) {
-        this.resultType = resultType == null ? MatchResultType.INVALID : resultType;
-    }
-
-    public boolean isWin() {
-        return resultType == MatchResultType.WIN;
-    }
-
-    public void setWin(boolean win) {
-        this.resultType = win ? MatchResultType.WIN : MatchResultType.LOSS;
-    }
-
-    public boolean isLoss() {
-        return resultType == MatchResultType.LOSS;
-    }
-
-    public boolean isRemake() {
-        return resultType == MatchResultType.REMAKE;
-    }
-
-    public boolean isInvalid() {
-        return resultType == MatchResultType.INVALID;
-    }
-
-    public boolean isCountedGame() {
-        return resultType == MatchResultType.WIN || resultType == MatchResultType.LOSS;
-    }
-
-    public String getDisplayResult() {
-        switch (resultType) {
-            case WIN:
-                return "승리";
-            case LOSS:
-                return "패배";
-            case REMAKE:
-                return "다시하기";
-            default:
-                return "제외";
-        }
+        this.resultType = resultType;
     }
 
     public int getKills() {
@@ -255,5 +188,53 @@ public class MatchSummary {
 
     public void setPerformanceScore(int performanceScore) {
         this.performanceScore = performanceScore;
+    }
+
+    public boolean isInvalid() {
+        return invalid;
+    }
+
+    public void setInvalid(boolean invalid) {
+        this.invalid = invalid;
+    }
+
+    public boolean isCountedGame() {
+        return countedGame;
+    }
+
+    public void setCountedGame(boolean countedGame) {
+        this.countedGame = countedGame;
+    }
+
+    public boolean isRemake() {
+        return remake;
+    }
+
+    public void setRemake(boolean remake) {
+        this.remake = remake;
+    }
+
+    public boolean isWin() {
+        return win;
+    }
+
+    public void setWin(boolean win) {
+        this.win = win;
+    }
+
+    public String getDisplayResult() {
+        return displayResult;
+    }
+
+    public void setDisplayResult(String displayResult) {
+        this.displayResult = displayResult;
+    }
+
+    public boolean isLoss() {
+        return loss;
+    }
+
+    public void setLoss(boolean loss) {
+        this.loss = loss;
     }
 }

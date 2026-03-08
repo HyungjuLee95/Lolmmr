@@ -108,28 +108,73 @@ const formatMetricValue = (metric) => {
   return String(metric.value);
 };
 
+const toOverviewPlayer = (player) => ({
+  id: player.participantId,
+  name: player.riotId,
+  champion: player.championName,
+  position: player.teamPosition,
+  kills: player.kills,
+  deaths: player.deaths,
+  assists: player.assists,
+  damage: player.damageToChampions,
+  gold: player.goldEarned,
+  cs: player.totalCs,
+  items: player.items || [],
+  isMe: player.me,
+});
+
+const buildOverviewFromAnalysis = (analysisDetail, fallbackOverview) => {
+  if (!analysisDetail?.blueTeamPlayers?.length || !analysisDetail?.redTeamPlayers?.length) {
+    return fallbackOverview;
+  }
+
+  const bluePlayers = analysisDetail.blueTeamPlayers.map(toOverviewPlayer);
+  const redPlayers = analysisDetail.redTeamPlayers.map(toOverviewPlayer);
+
+  const countedGame = !['REMAKE', 'INVALID'].includes(analysisDetail.resultType);
+  const meInBlue = analysisDetail.blueTeamPlayers.some((p) => p.me);
+  const meInRed = analysisDetail.redTeamPlayers.some((p) => p.me);
+
+  let blueWin = false;
+
+  if (countedGame) {
+    if (meInBlue) {
+      blueWin = analysisDetail.resultType === 'WIN';
+    } else if (meInRed) {
+      blueWin = analysisDetail.resultType === 'LOSS';
+    } else {
+      blueWin = fallbackOverview?.blueTeam?.isWin ?? false;
+    }
+  }
+
+  return {
+    blueTeam: {
+      isWin: blueWin,
+      hasWinner: countedGame,
+      kills: bluePlayers.reduce((sum, p) => sum + (p.kills || 0), 0),
+      players: bluePlayers,
+    },
+    redTeam: {
+      isWin: countedGame ? !blueWin : false,
+      hasWinner: countedGame,
+      kills: redPlayers.reduce((sum, p) => sum + (p.kills || 0), 0),
+      players: redPlayers,
+    },
+  };
+};
+
 const MatchCard = ({ match, isExpanded, onToggle }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [analysisDetail, setAnalysisDetail] = useState(null);
-  const [analysisStatus, setAnalysisStatus] = useState('idle'); // idle | loading | success | error
   const [analysisError, setAnalysisError] = useState('');
   const analysisRequestedRef = useRef(false);
 
   const resultType = match.resultType || (match.win ? 'WIN' : 'LOSS');
   const resultLabel = match.resultLabel || (match.win ? '승리' : '패배');
   const resultStyle = useMemo(() => getResultStyle(resultType), [resultType]);
-/* eslint-disable react-hooks/set-state-in-effect */
+
   useEffect(() => {
-    setAnalysisDetail(null);
-    setAnalysisStatus('idle');
-    setAnalysisError('');
-    setActiveTab('overview');
-    analysisRequestedRef.current = false;
-  }, [match.matchId]);
-/* eslint-disable react-hooks/set-state-in-effect */
-/* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    if (!isExpanded || activeTab !== 'analysis') {
+    if (!isExpanded) {
       return;
     }
 
@@ -138,14 +183,10 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
     }
 
     if (!match.matchId || !match.puuid) {
-      setAnalysisError('상세 분석 요청에 필요한 matchId 또는 puuid가 없습니다.');
-      setAnalysisStatus('error');
       return;
     }
 
     analysisRequestedRef.current = true;
-    setAnalysisStatus('loading');
-    setAnalysisError('');
 
     axios
       .get(`/api/matches/${match.matchId}/analysis`, {
@@ -157,15 +198,18 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
         }
 
         setAnalysisDetail(response.data);
-        setAnalysisStatus('success');
       })
       .catch((error) => {
         setAnalysisError(error?.message || '상세 분석을 불러오지 못했습니다.');
-        setAnalysisStatus('error');
         analysisRequestedRef.current = false;
       });
-  }, [isExpanded, activeTab, match.matchId, match.puuid]);
-/* eslint-disable react-hooks/set-state-in-effect */
+  }, [isExpanded, match.matchId, match.puuid]);
+
+  const overviewData = useMemo(
+    () => buildOverviewFromAnalysis(analysisDetail, match.overview),
+    [analysisDetail, match.overview],
+  );
+
   const metricCards = useMemo(() => analysisDetail?.metricCards ?? [], [analysisDetail]);
   const comments = useMemo(() => analysisDetail?.coachingComments ?? [], [analysisDetail]);
   const laneComparison = useMemo(() => analysisDetail?.laneComparison ?? null, [analysisDetail]);
@@ -285,14 +329,14 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
               <div className={`rounded-lg ${resultStyle.blueBox}`}>
                 <div className={`px-3 py-2 flex justify-between items-center ${resultStyle.blueHeader}`}>
                   <span className="text-xs font-bold">
-                    {getTeamHeaderLabel(match.overview.blueTeam, '블루팀')}
+                    {getTeamHeaderLabel(overviewData.blueTeam, '블루팀')}
                   </span>
                   <span className="text-[10px] md:text-xs text-gray-400">
-                    총 킬: {match.overview.blueTeam.kills}
+                    총 킬: {overviewData.blueTeam.kills}
                   </span>
                 </div>
                 <div className="flex flex-col">
-                  {match.overview.blueTeam.players.map((p) => (
+                  {overviewData.blueTeam.players.map((p) => (
                     <PlayerRow key={p.id} player={p} isBlueTeam />
                   ))}
                 </div>
@@ -301,14 +345,14 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
               <div className={`rounded-lg ${resultStyle.redBox}`}>
                 <div className={`px-3 py-2 flex justify-between items-center ${resultStyle.redHeader}`}>
                   <span className="text-xs font-bold">
-                    {getTeamHeaderLabel(match.overview.redTeam, '레드팀')}
+                    {getTeamHeaderLabel(overviewData.redTeam, '레드팀')}
                   </span>
                   <span className="text-[10px] md:text-xs text-gray-400">
-                    총 킬: {match.overview.redTeam.kills}
+                    총 킬: {overviewData.redTeam.kills}
                   </span>
                 </div>
                 <div className="flex flex-col">
-                  {match.overview.redTeam.players.map((p) => (
+                  {overviewData.redTeam.players.map((p) => (
                     <PlayerRow key={p.id} player={p} isBlueTeam={false} />
                   ))}
                 </div>
@@ -328,13 +372,13 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                 </div>
               </div>
 
-              {analysisStatus === 'error' && (
+              {analysisError && (
                 <div className="bg-[#1c1c1f] rounded-xl border border-red-900/40 p-6 text-sm text-red-300 text-center">
                   {analysisError}
                 </div>
               )}
 
-              {analysisStatus === 'success' && analysisDetail && (
+              {!analysisError && analysisDetail && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-[#1c1c1f] rounded-xl border border-gray-800/60 p-3 flex flex-col items-center col-span-1">
                     <h3 className="text-xs font-bold text-gray-300 mb-2">플레이 성향 지표</h3>
@@ -386,21 +430,9 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                             />
                           </div>
                         </div>
-                        <ComparisonBar
-                          label="CS"
-                          myValue={laneComparison.myCs}
-                          oppValue={laneComparison.opponentCs}
-                        />
-                        <ComparisonBar
-                          label="골드"
-                          myValue={laneComparison.myGoldEarned}
-                          oppValue={laneComparison.opponentGoldEarned}
-                        />
-                        <ComparisonBar
-                          label="딜량"
-                          myValue={laneComparison.myDamageToChampions}
-                          oppValue={laneComparison.opponentDamageToChampions}
-                        />
+                        <ComparisonBar label="CS" myValue={laneComparison.myCs} oppValue={laneComparison.opponentCs} />
+                        <ComparisonBar label="골드" myValue={laneComparison.myGoldEarned} oppValue={laneComparison.opponentGoldEarned} />
+                        <ComparisonBar label="딜량" myValue={laneComparison.myDamageToChampions} oppValue={laneComparison.opponentDamageToChampions} />
                       </div>
                     ) : (
                       <div className="text-xs text-gray-500 text-center mt-8">상대를 찾을 수 없습니다.</div>
@@ -434,10 +466,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                     {timelineData.length > 0 ? (
                       <div className="w-full h-44">
                         <ResponsiveContainer width="100%" height="100%">
-                          <LineChart
-                            data={timelineData}
-                            margin={{ top: 5, right: 10, bottom: 0, left: -25 }}
-                          >
+                          <LineChart data={timelineData} margin={{ top: 5, right: 10, bottom: 0, left: -25 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
                             <XAxis
                               dataKey="time"
@@ -495,7 +524,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                       <div className="w-full h-44 flex items-center justify-center text-xs text-gray-500">
                         {isExcludedAnalysis
                           ? '집계 제외 경기라 시간대별 성장 추이를 표시하지 않습니다.'
-                          : '타임라인 데이터가 없습니다.'}
+                          : '분석 데이터가 준비되면 표시됩니다.'}
                       </div>
                     )}
                   </div>
@@ -516,15 +545,11 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                                 : 'bg-red-900/10 border-red-500/20 text-red-100'
                           }`}
                         >
-                          {item.type === 'good' && (
-                            <ThumbsUp className="w-3 h-3 text-blue-400 mt-0.5 flex-shrink-0" />
-                          )}
+                          {item.type === 'good' && <ThumbsUp className="w-3 h-3 text-blue-400 mt-0.5 flex-shrink-0" />}
                           {item.type === 'warning' && (
                             <AlertCircle className="w-3 h-3 text-yellow-400 mt-0.5 flex-shrink-0" />
                           )}
-                          {item.type === 'bad' && (
-                            <AlertCircle className="w-3 h-3 text-red-400 mt-0.5 flex-shrink-0" />
-                          )}
+                          {item.type === 'bad' && <AlertCircle className="w-3 h-3 text-red-400 mt-0.5 flex-shrink-0" />}
                           <div className="leading-tight">
                             {item.title && <div className="font-semibold mb-0.5">{item.title}</div>}
                             <div>{item.text}</div>
@@ -539,9 +564,9 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                 </div>
               )}
 
-              {analysisStatus === 'idle' && (
+              {!analysisError && !analysisDetail && (
                 <div className="text-xs text-gray-500 text-center py-4">
-                  상세 분석을 준비 중입니다.
+                  분석 데이터가 준비되면 자동으로 표시됩니다.
                 </div>
               )}
             </div>

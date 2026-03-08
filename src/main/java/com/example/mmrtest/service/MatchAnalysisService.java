@@ -1,13 +1,5 @@
 package com.example.mmrtest.service;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
-import org.springframework.stereotype.Service;
-
 import com.example.mmrtest.dto.CoachingComment;
 import com.example.mmrtest.dto.LaneOpponentComparison;
 import com.example.mmrtest.dto.MatchAnalysisDetail;
@@ -16,6 +8,13 @@ import com.example.mmrtest.dto.MatchResultType;
 import com.example.mmrtest.dto.MatchSummary;
 import com.example.mmrtest.dto.MetricCard;
 import com.example.mmrtest.dto.TimelineBucket;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class MatchAnalysisService {
@@ -85,7 +84,7 @@ public class MatchAnalysisService {
 
         detail.setMetricCards(buildMetricCards(me, participants, summary));
         detail.setCoachingComments(buildCoachingComments(me, summary, detail.getLaneComparison()));
-        detail.setTimelineBuckets(buildEstimatedTimelineBuckets(me, laneOpponent, summary));
+        detail.setTimelineBuckets(buildTimelineBuckets(matchId, me, laneOpponent, summary));
 
         return detail;
     }
@@ -373,11 +372,259 @@ public class MatchAnalysisService {
 
         comments.add(new CoachingComment(
                 "warning",
-                "타임라인 API 미연동",
-                "현재 성장 추이는 최종 결과 기반 추정 버킷입니다. 다음 단계에서 실제 timeline API로 교체합니다."
+                "타임라인 기반 분석",
+                "타임라인 프레임이 있으면 실제 시간축 데이터로, 없으면 추정 버킷으로 성장 추이를 표시합니다."
         ));
 
         return comments;
+    }
+
+    private List<TimelineBucket> buildTimelineBuckets(
+            String matchId,
+            Map<String, Object> me,
+            Map<String, Object> opponent,
+            MatchSummary summary
+    ) {
+        try {
+            Map<String, Object> timelineRaw = riotMatchService.fetchMatchTimelineRaw(matchId);
+            List<TimelineBucket> actual = buildActualTimelineBuckets(timelineRaw, me, opponent, summary);
+            if (!actual.isEmpty()) {
+                return actual;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return buildEstimatedTimelineBuckets(me, opponent, summary);
+    }
+
+    private List<TimelineBucket> buildActualTimelineBuckets(
+            Map<String, Object> timelineRaw,
+            Map<String, Object> me,
+            Map<String, Object> opponent,
+            MatchSummary summary
+    ) {
+        if (timelineRaw == null || me == null || summary == null) {
+            return Collections.emptyList();
+        }
+
+        Map<String, Object> info = asMap(timelineRaw.get("info"));
+        if (info == null) {
+            return Collections.emptyList();
+        }
+
+        List<Map<String, Object>> frames = asListOfMaps(info.get("frames"));
+        if (frames.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        int myParticipantId = getInt(me, "participantId", 0);
+        int opponentParticipantId = opponent == null ? 0 : getInt(opponent, "participantId", 0);
+
+        if (myParticipantId == 0) {
+            return Collections.emptyList();
+        }
+
+        List<Integer> checkpoints = buildCheckpoints(summary.getGameDurationMinutes());
+        List<TimelineBucket> buckets = new ArrayList<>();
+
+        for (int minute : checkpoints) {
+            long targetTimestamp = minute * 60_000L;
+            Map<String, Object> frame = findFrameAtOrBefore(frames, targetTimestamp);
+            if (frame == null) {
+                continue;
+            }
+
+            Map<String, Object> myFrame = getParticipantFrame(frame, myParticipantId);
+            if (myFrame == null) {
+                continue;
+            }
+
+            Map<String, Object> oppFrame = opponentParticipantId == 0 ? null : getParticipantFrame(frame, opponentParticipantId);
+
+            TimelineEventStats eventStats = collectEventStatsUntil(frames, targetTimestamp, myParticipantId);
+
+            int myGold = getInt(myFrame, "totalGold", 0);
+            int myCs = getInt(myFrame, "minionsKilled", 0) + getInt(myFrame, "jungleMinionsKilled", 0);
+            int myLevel = getInt(myFrame, "level", 1);
+            int myXp = getInt(myFrame, "xp", 0);
+
+            int oppGold = oppFrame == null ? 0 : getInt(oppFrame, "totalGold", 0);
+            int oppCs = oppFrame == null ? 0 : getInt(oppFrame, "minionsKilled", 0) + getInt(oppFrame, "jungleMinionsKilled", 0);
+            int oppLevel = oppFrame == null ? 1 : getInt(oppFrame, "level", 1);
+            int oppXp = oppFrame == null ? 0 : getInt(oppFrame, "xp", 0);
+
+            int goldDiff = myGold - oppGold;
+            int csDiff = myCs - oppCs;
+            int xpDiff = myXp - oppXp;
+
+            double growth = 50.0
+                    + goldDiff / 150.0
+                    + csDiff * 1.2
+                    + xpDiff / 120.0;
+
+            double combat = 45.0
+                    + eventStats.kills * 9.0
+                    + eventStats.assists * 5.0
+                    - eventStats.deaths * 12.0;
+
+            double map = 40.0
+                    + eventStats.wardsPlaced * 2.5
+                    + eventStats.wardsKilled * 4.0
+                    + eventStats.objectiveScore * 6.0;
+
+            double survival = 70.0 - eventStats.deaths * 12.0;
+
+            double impact = growth * 0.35
+                    + combat * 0.30
+                    + map * 0.20
+                    + survival * 0.15;
+
+            TimelineBucket bucket = new TimelineBucket();
+            bucket.setMinute(minute);
+            bucket.setTotalGold(myGold);
+            bucket.setTotalCs(myCs);
+            bucket.setLevel(myLevel);
+            bucket.setGoldDiffVsLane(goldDiff);
+            bucket.setCsDiffVsLane(csDiff);
+            bucket.setXpDiffVsLane(xpDiff);
+            bucket.setGrowthScore(round1(clampDouble(growth, 0, 100)));
+            bucket.setCombatScore(round1(clampDouble(combat, 0, 100)));
+            bucket.setMapScore(round1(clampDouble(map, 0, 100)));
+            bucket.setSurvivalScore(round1(clampDouble(survival, 0, 100)));
+            bucket.setImpactScore(round1(clampDouble(impact, 0, 100)));
+
+            buckets.add(bucket);
+        }
+
+        return buckets;
+    }
+
+    private TimelineEventStats collectEventStatsUntil(
+            List<Map<String, Object>> frames,
+            long targetTimestamp,
+            int myParticipantId
+    ) {
+        TimelineEventStats stats = new TimelineEventStats();
+
+        for (Map<String, Object> frame : frames) {
+            List<Map<String, Object>> events = asListOfMaps(frame.get("events"));
+            for (Map<String, Object> event : events) {
+                long eventTimestamp = getLong(event, "timestamp", 0L);
+                if (eventTimestamp > targetTimestamp) {
+                    continue;
+                }
+
+                String type = getString(event, "type", "");
+
+                if ("CHAMPION_KILL".equals(type)) {
+                    int killerId = getInt(event, "killerId", 0);
+                    int victimId = getInt(event, "victimId", 0);
+                    List<Integer> assistingIds = getIntList(event.get("assistingParticipantIds"));
+
+                    if (killerId == myParticipantId) {
+                        stats.kills++;
+                    }
+                    if (victimId == myParticipantId) {
+                        stats.deaths++;
+                    }
+                    if (assistingIds.contains(myParticipantId)) {
+                        stats.assists++;
+                    }
+                }
+
+                if ("WARD_PLACED".equals(type)) {
+                    int creatorId = getInt(event, "creatorId", 0);
+                    if (creatorId == myParticipantId) {
+                        stats.wardsPlaced++;
+                    }
+                }
+
+                if ("WARD_KILL".equals(type)) {
+                    int killerId = getInt(event, "killerId", 0);
+                    if (killerId == myParticipantId) {
+                        stats.wardsKilled++;
+                    }
+                }
+
+                if ("ELITE_MONSTER_KILL".equals(type)) {
+                    int killerId = getInt(event, "killerId", 0);
+                    List<Integer> assistingIds = getIntList(event.get("assistingParticipantIds"));
+                    int score = objectiveMonsterScore(getString(event, "monsterType", ""));
+
+                    if (killerId == myParticipantId) {
+                        stats.objectiveScore += score;
+                    } else if (assistingIds.contains(myParticipantId)) {
+                        stats.objectiveScore += Math.max(1, score / 2);
+                    }
+                }
+
+                if ("BUILDING_KILL".equals(type)) {
+                    int killerId = getInt(event, "killerId", 0);
+                    List<Integer> assistingIds = getIntList(event.get("assistingParticipantIds"));
+
+                    if (killerId == myParticipantId) {
+                        stats.objectiveScore += 2;
+                    } else if (assistingIds.contains(myParticipantId)) {
+                        stats.objectiveScore += 1;
+                    }
+                }
+            }
+        }
+
+        return stats;
+    }
+
+    private int objectiveMonsterScore(String monsterType) {
+        if (monsterType == null) {
+            return 1;
+        }
+
+        return switch (monsterType) {
+            case "DRAGON" -> 3;
+            case "RIFTHERALD" -> 4;
+            case "BARON_NASHOR" -> 6;
+            case "HORDE" -> 4;
+            default -> 2;
+        };
+    }
+
+    private Map<String, Object> findFrameAtOrBefore(List<Map<String, Object>> frames, long targetTimestamp) {
+        Map<String, Object> selected = null;
+
+        for (Map<String, Object> frame : frames) {
+            long timestamp = getLong(frame, "timestamp", 0L);
+            if (timestamp <= targetTimestamp) {
+                selected = frame;
+            } else {
+                break;
+            }
+        }
+
+        if (selected == null && !frames.isEmpty()) {
+            return frames.get(0);
+        }
+
+        return selected;
+    }
+
+    private Map<String, Object> getParticipantFrame(Map<String, Object> frame, int participantId) {
+        Map<String, Object> participantFrames = asMap(frame.get("participantFrames"));
+        if (participantFrames == null || participantFrames.isEmpty()) {
+            return null;
+        }
+
+        Object byStringKey = participantFrames.get(String.valueOf(participantId));
+        if (byStringKey != null) {
+            return asMap(byStringKey);
+        }
+
+        Object byNumericKey = participantFrames.get(participantId);
+        if (byNumericKey != null) {
+            return asMap(byNumericKey);
+        }
+
+        return null;
     }
 
     private List<TimelineBucket> buildEstimatedTimelineBuckets(
@@ -582,6 +829,21 @@ public class MatchAnalysisService {
         return result;
     }
 
+    @SuppressWarnings("unchecked")
+    private List<Integer> getIntList(Object value) {
+        if (!(value instanceof List<?> list)) {
+            return Collections.emptyList();
+        }
+
+        List<Integer> result = new ArrayList<>();
+        for (Object item : list) {
+            if (item instanceof Number number) {
+                result.add(number.intValue());
+            }
+        }
+        return result;
+    }
+
     private String getString(Map<String, Object> map, String key, String defaultValue) {
         Object value = map.get(key);
         return value == null ? defaultValue : String.valueOf(value);
@@ -593,5 +855,22 @@ public class MatchAnalysisService {
             return number.intValue();
         }
         return defaultValue;
+    }
+
+    private long getLong(Map<String, Object> map, String key, long defaultValue) {
+        Object value = map.get(key);
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        return defaultValue;
+    }
+
+    private static class TimelineEventStats {
+        int kills;
+        int assists;
+        int deaths;
+        int wardsPlaced;
+        int wardsKilled;
+        int objectiveScore;
     }
 }
