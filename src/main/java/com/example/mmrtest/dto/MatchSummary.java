@@ -27,6 +27,7 @@ public class MatchSummary {
     private int queueId;
     private long gameEndTimeStamp;
     private int performanceScore;
+    private String teamPosition;
 
     private boolean invalid;
     private boolean countedGame;
@@ -188,6 +189,14 @@ public class MatchSummary {
 
     public void setPerformanceScore(int performanceScore) {
         this.performanceScore = performanceScore;
+    }
+
+    public String getTeamPosition() {
+        return teamPosition;
+    }
+
+    public void setTeamPosition(String teamPosition) {
+        this.teamPosition = teamPosition;
     }
 
     public boolean isInvalid() {
