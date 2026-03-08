@@ -1,12 +1,5 @@
 package com.example.mmrtest.service;
 
-import com.example.mmrtest.dto.MatchSummary;
-import com.example.mmrtest.dto.ScoreResult;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -14,6 +7,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import com.example.mmrtest.dto.MatchSummary;
+import com.example.mmrtest.dto.ScoreResult;
 
 @Component
 public class ScoreEngine {
@@ -29,8 +30,7 @@ public class ScoreEngine {
             "MIDDLE", 1.00,
             "BOTTOM", 1.05,
             "UTILITY", 0.95,
-            "SUPPORT", 0.95
-    );
+            "SUPPORT", 0.95);
 
     private static final Map<String, Double> ROLE_CSPM_BASELINE = Map.of(
             "TOP", 6.3,
@@ -38,8 +38,7 @@ public class ScoreEngine {
             "MIDDLE", 7.1,
             "BOTTOM", 7.7,
             "UTILITY", 1.6,
-            "SUPPORT", 1.6
-    );
+            "SUPPORT", 1.6);
 
     private static final Map<String, Double> ROLE_GPM_BASELINE = Map.of(
             "TOP", 390.0,
@@ -47,8 +46,7 @@ public class ScoreEngine {
             "MIDDLE", 420.0,
             "BOTTOM", 435.0,
             "UTILITY", 300.0,
-            "SUPPORT", 300.0
-    );
+            "SUPPORT", 300.0);
 
     @Value("${score.calibration-log-enabled:true}")
     private boolean calibrationLogEnabled;
@@ -59,13 +57,15 @@ public class ScoreEngine {
                     baseScore,
                     baseScore,
                     0,
+                    0,
+                    0,
+                    0,
                     0.0,
                     0.0,
                     new ArrayList<>(),
                     new ArrayList<>(),
                     new ArrayList<>(),
-                    new LinkedHashMap<>()
-            );
+                    new LinkedHashMap<>());
         }
 
         List<MatchSummary> sortedMatches = matches.stream()
@@ -75,6 +75,8 @@ public class ScoreEngine {
 
         int currentScore = baseScore;
         int countedGames = 0;
+        int remakeCount = 0;
+        int invalidCount = 0;
 
         int deltaSum = 0;
         int performanceSum = 0;
@@ -86,6 +88,13 @@ public class ScoreEngine {
         Map<String, MutableRoleAccumulator> roleAcc = new LinkedHashMap<>();
 
         for (MatchSummary match : sortedMatches) {
+            if (match.isRemake()) {
+                remakeCount++;
+            }
+            if (match.isInvalid()) {
+                invalidCount++;
+            }
+
             if (!match.isCountedGame()) {
                 match.setPerformanceScore(0);
                 scoreDeltaHistory.add(0);
@@ -128,8 +137,7 @@ public class ScoreEngine {
                         baseDelta,
                         performanceDelta,
                         finalDelta,
-                        currentScore
-                );
+                        currentScore);
             }
         }
 
@@ -155,39 +163,46 @@ public class ScoreEngine {
                     countedGames,
                     averagePerformance,
                     averageDelta,
-                    roleStats
-            );
+                    roleStats);
         }
 
         return buildScoreResult(
                 currentScore,
                 baseScore,
                 countedGames,
+                sortedMatches.size(),
+                remakeCount,
+                invalidCount,
                 averageDelta,
                 averagePerformance,
                 scoreHistory,
                 scoreDeltaHistory,
                 performanceHistory,
-                roleStats
-        );
+                roleStats);
     }
 
     private ScoreResult buildScoreResult(
             int currentScore,
             int baseScore,
             int countedGames,
+            int sampleCount,
+            int remakeCount,
+            int invalidCount,
             double averageDelta,
             double averagePerformance,
             List<Integer> scoreHistory,
             List<Integer> scoreDeltaHistory,
             List<Integer> performanceHistory,
-            Map<String, ScoreResult.RoleStat> roleStats
-    ) {
+            Map<String, ScoreResult.RoleStat> roleStats) {
         ScoreResult result = new ScoreResult();
         result.setCurrentScore(currentScore);
         result.setTotalScore(currentScore);
         result.setBaseScore(baseScore);
         result.setCountedGames(countedGames);
+        result.setSampleCount(sampleCount);
+        result.setRemakeCount(remakeCount);
+        result.setInvalidCount(invalidCount);
+        result.setExcludedCount(remakeCount + invalidCount);
         result.setAverageDelta(averageDelta);
         result.setAveragePerformance(averagePerformance);
         result.setGrade(gradeFromScore(currentScore));
@@ -236,20 +251,29 @@ public class ScoreEngine {
 
         String role = rawRole.toUpperCase(Locale.ROOT);
 
-        if ("MID".equals(role)) return "MIDDLE";
-        if ("ADC".equals(role) || "BOT".equals(role)) return "BOTTOM";
-        if ("SUP".equals(role)) return "SUPPORT";
+        if ("MID".equals(role))
+            return "MIDDLE";
+        if ("ADC".equals(role) || "BOT".equals(role))
+            return "BOTTOM";
+        if ("SUP".equals(role))
+            return "SUPPORT";
 
         return role;
     }
 
     private String gradeFromScore(int score) {
-        if (score >= 1280) return "S+";
-        if (score >= 1200) return "S";
-        if (score >= 1120) return "A";
-        if (score >= 1040) return "B";
-        if (score >= 960) return "C";
-        if (score >= 880) return "D";
+        if (score >= 1280)
+            return "S+";
+        if (score >= 1200)
+            return "S";
+        if (score >= 1120)
+            return "A";
+        if (score >= 1040)
+            return "B";
+        if (score >= 960)
+            return "C";
+        if (score >= 880)
+            return "D";
         return "F";
     }
 
@@ -262,8 +286,8 @@ public class ScoreEngine {
     }
 
     private static class MutableRoleAccumulator {
-        int games;
-        int performanceSum;
-        int deltaSum;
+        private int games;
+        private double performanceSum;
+        private double deltaSum;
     }
 }

@@ -11,6 +11,10 @@ public class ScoreResult {
     private String grade;
     private int baseScore;
     private int countedGames;
+    private int sampleCount;
+    private int excludedCount;
+    private int remakeCount;
+    private int invalidCount;
     private double averageDelta;
     private double averagePerformance;
     private List<Integer> scoreHistory = new ArrayList<>();
@@ -34,6 +38,10 @@ public class ScoreResult {
             String grade,
             int baseScore,
             int countedGames,
+            int sampleCount,
+            int excludedCount,
+            int remakeCount,
+            int invalidCount,
             double averageDelta,
             double averagePerformance,
             List<Integer> scoreHistory,
@@ -46,6 +54,10 @@ public class ScoreResult {
         this.grade = grade;
         this.baseScore = baseScore;
         this.countedGames = countedGames;
+        this.sampleCount = sampleCount;
+        this.excludedCount = excludedCount;
+        this.remakeCount = remakeCount;
+        this.invalidCount = invalidCount;
         this.averageDelta = averageDelta;
         this.averagePerformance = averagePerformance;
         this.scoreHistory = scoreHistory;
@@ -92,6 +104,38 @@ public class ScoreResult {
 
     public void setCountedGames(int countedGames) {
         this.countedGames = countedGames;
+    }
+
+    public int getSampleCount() {
+        return sampleCount;
+    }
+
+    public void setSampleCount(int sampleCount) {
+        this.sampleCount = sampleCount;
+    }
+
+    public int getExcludedCount() {
+        return excludedCount;
+    }
+
+    public void setExcludedCount(int excludedCount) {
+        this.excludedCount = excludedCount;
+    }
+
+    public int getRemakeCount() {
+        return remakeCount;
+    }
+
+    public void setRemakeCount(int remakeCount) {
+        this.remakeCount = remakeCount;
+    }
+
+    public int getInvalidCount() {
+        return invalidCount;
+    }
+
+    public void setInvalidCount(int invalidCount) {
+        this.invalidCount = invalidCount;
     }
 
     public double getAverageDelta() {
@@ -179,6 +223,7 @@ public class ScoreResult {
         public void setAverageDelta(double averageDelta) {
             this.averageDelta = averageDelta;
         }
+
         @Override
         public String toString() {
             return "RoleStat{" +
@@ -187,6 +232,5 @@ public class ScoreResult {
                     ", averageDelta=" + averageDelta +
                     '}';
         }
-
     }
 }

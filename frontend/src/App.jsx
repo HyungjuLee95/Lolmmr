@@ -81,7 +81,7 @@ export default function App() {
           </div>
 
           <p className="text-center text-gray-400 text-sm md:text-base mb-6">
-            소환사명을 검색하면 최근 2경기 기반 MMR 분석 대시보드로 이동합니다.
+            소환사명을 검색하면 최근 2경기 표시와 최근 10경기 점수 산정 기준을 함께 보여주는 MMR 분석 대시보드로 이동합니다.
           </p>
 
           <form className="relative" onSubmit={handleSearchSubmit}>
@@ -209,7 +209,7 @@ export default function App() {
 
             <div className="bg-[#1c1c1f] rounded-xl p-5 border border-gray-800 flex items-center justify-between">
               <div className="flex flex-col items-center">
-                <span className="text-xs text-gray-400 mb-2">최근 2게임 승률</span>
+                <span className="text-xs text-gray-400 mb-2">최근 2경기 표시</span>
                 <div className="relative w-20 h-20 flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90">
                     <circle
@@ -254,10 +254,10 @@ export default function App() {
                 <div className="text-xl font-bold text-blue-400">
                   {data?.summary?.kda}
                 </div>
-                <div className="text-[10px] text-gray-500 mt-1">최근 2경기 기준</div>
+                <div className="text-[10px] text-gray-500 mt-1">점수는 최근 10경기 기준</div>
                 {(remakes > 0 || invalid > 0) && (
                   <div className="text-[10px] text-yellow-400 mt-1">
-                    집계 제외 {remakes + invalid}경기
+                    다시하기/제외 {remakes + invalid}경기
                   </div>
                 )}
               </div>

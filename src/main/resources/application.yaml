@@ -37,15 +37,16 @@ server:
 
 riot:
   api:
-    key: ${RIOT_API_KEY:${RIOT_API_KEy:}}
+    key: RGAPI-6b518306-dfab-4a50-8784-8aec3a7c8272
 
 dev:
   allowlist:
     enabled: false
     riotIds:
       - "guny#kr1"
-      - "욕설멈춰i#kr1"
-      - "Lune silencieuse#KR2"
+      - "욕설만쳐1#kr1"
+      - "lune silencieuse#KR2"
       - "hideonbush#kr1"
+
 score:
   calibration-log-enabled: true

@@ -1,21 +1,26 @@
 package com.example.mmrtest.controller;
 
-import com.example.mmrtest.dto.SummonerDTO;
-import com.example.mmrtest.service.SummonerService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.web.bind.annotation.*;
-
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.example.mmrtest.dto.SummonerDTO;
+import com.example.mmrtest.service.SummonerService;
 
 @RestController
 @RequestMapping("/api")
@@ -92,6 +97,7 @@ public class SummonerController {
             soloData.put("standardMmr", summonerService.convertTierToMmr(soloTier, soloRank));
             soloData.put("scoreResult", analysisResult.get("soloScoreResult"));
             soloData.put("summary", analysisResult.get("soloSummary"));
+            soloData.put("counts", ((Map<String, Object>) analysisResult.get("counts")).get("solo"));
             queues.put("solo", soloData);
 
             Map<String, Object> flexData = new HashMap<>();
@@ -102,6 +108,7 @@ public class SummonerController {
             flexData.put("standardMmr", summonerService.convertTierToMmr(flexTier, flexRank));
             flexData.put("scoreResult", analysisResult.get("flexScoreResult"));
             flexData.put("summary", analysisResult.get("flexSummary"));
+            flexData.put("counts", ((Map<String, Object>) analysisResult.get("counts")).get("flex"));
             queues.put("flex", flexData);
 
             finalResponse.put("queues", queues);
@@ -157,5 +164,4 @@ public class SummonerController {
 
         return riotId.trim().toLowerCase(Locale.ROOT);
     }
-
 }

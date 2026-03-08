@@ -24,6 +24,7 @@ public class RiotMatchService {
     private static final String ASIA_BASE_URL = "https://asia.api.riotgames.com";
     private static final int SOLO_RANK_QUEUE_ID = 420;
     private static final int FLEX_RANK_QUEUE_ID = 440;
+    private static final int DEFAULT_MATCH_COUNT = 10;
 
     private final RestTemplate restTemplate;
 
@@ -71,6 +72,10 @@ public class RiotMatchService {
     }
 
     public List<String> getMatchIds(String puuid, int queueId) {
+        return getMatchIds(puuid, queueId, DEFAULT_MATCH_COUNT);
+    }
+
+    public List<String> getMatchIds(String puuid, int queueId, int count) {
         if (puuid == null || puuid.isBlank()) {
             return Collections.emptyList();
         }
@@ -79,12 +84,15 @@ public class RiotMatchService {
             return Collections.emptyList();
         }
 
+        int safeCount = count <= 0 ? DEFAULT_MATCH_COUNT : count;
+
         String url = ASIA_BASE_URL
                 + "/lol/match/v5/matches/by-puuid/"
                 + puuid
                 + "/ids?type=ranked&queue="
                 + queueId
-                + "&start=0&count=10";
+                + "&start=0&count="
+                + safeCount;
 
         List<String> ids = riotGet(url, new ParameterizedTypeReference<List<String>>() {});
         return ids == null ? Collections.emptyList() : ids;
@@ -127,7 +135,7 @@ public class RiotMatchService {
         List<String> ids = riotGet(url, new ParameterizedTypeReference<List<String>>() {});
         return ids == null ? Collections.emptyList() : ids;
     }
-    
+
     @Cacheable(value = "matchDetail", key = "#matchId + ':' + #puuid", cacheManager = "cacheManager")
     public MatchSummary fetchMatchDetail(String puuid, String matchId) {
         Map<String, Object> rawMatch = fetchMatchRaw(matchId);
@@ -149,7 +157,6 @@ public class RiotMatchService {
         return riotGet(url, new ParameterizedTypeReference<Map<String, Object>>() {});
     }
 
-    @SuppressWarnings("unchecked")
     private MatchSummary buildMatchSummary(String puuid, Map<String, Object> rawMatch) {
         if (rawMatch == null) {
             return null;
@@ -302,7 +309,6 @@ public class RiotMatchService {
 
         return getInt(styles.get(1), "style", 0);
     }
-
 
     private String resolveTeamPosition(Map<String, Object> participant) {
         String teamPosition = getString(participant, "teamPosition", "");

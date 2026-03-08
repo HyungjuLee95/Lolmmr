@@ -17,6 +17,7 @@ import java.util.concurrent.Executors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -35,6 +36,9 @@ import com.example.mmrtest.repository.SummonerHistoryRepository;
 
 @Service
 public class SummonerService {
+
+    private static final int SCORE_SAMPLE_MATCH_LIMIT = 10;
+    private static final int DISPLAY_MATCH_LIMIT = 2;
 
     @Autowired
     private SummonerHistoryRepository historyRepository;
@@ -94,6 +98,32 @@ public class SummonerService {
         return resp.getBody();
     }
 
+    private <T> T riotGet(String url, ParameterizedTypeReference<T> responseType) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-Riot-Token", apiKey);
+        headers.set("User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36");
+        headers.set("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7");
+        headers.set("Accept-Charset", "application/x-www-form-urlencoded; charset=UTF-8");
+        headers.set("Origin", "https://developer.riotgames.com");
+        headers.set("Accept", "application/json");
+
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        ResponseEntity<T> resp = restTemplate.exchange(URI.create(url), HttpMethod.GET, entity, responseType);
+        return resp.getBody();
+    }
+
+    private Map<String, Object> riotGetMap(String url) {
+        return riotGet(url, new ParameterizedTypeReference<Map<String, Object>>() {
+        });
+    }
+
+    private List<Map<String, Object>> riotGetListOfMaps(String url) {
+        List<Map<String, Object>> response = riotGet(url, new ParameterizedTypeReference<List<Map<String, Object>>>() {
+        });
+        return response == null ? Collections.emptyList() : response;
+    }
+
     private Map<String, Object> getAccountByRiotId(String gameName, String tagLine) {
         String encodedGameName = UriUtils.encodePathSegment(gameName, StandardCharsets.UTF_8);
         String[] tagCandidates = new String[]{
@@ -107,7 +137,7 @@ public class SummonerService {
                 String encodedTagLine = UriUtils.encodePathSegment(candidate, StandardCharsets.UTF_8);
                 String accountUrl = "https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/"
                         + encodedGameName + "/" + encodedTagLine;
-                Map<String, Object> accountResponse = riotGet(accountUrl, Map.class);
+                Map<String, Object> accountResponse = riotGetMap(accountUrl);
                 if (accountResponse != null && accountResponse.get("puuid") != null) {
                     return accountResponse;
                 }
@@ -125,14 +155,14 @@ public class SummonerService {
 
         String puuid = (String) accountResponse.get("puuid");
         String accountByPuuidUrl = "https://asia.api.riotgames.com/riot/account/v1/accounts/by-puuid/" + puuid;
-        Map<String, Object> accountByPuuidResponse = riotGet(accountByPuuidUrl, Map.class);
+        Map<String, Object> accountByPuuidResponse = riotGetMap(accountByPuuidUrl);
 
         String realName = accountByPuuidResponse != null && accountByPuuidResponse.get("gameName") != null
                 ? (String) accountByPuuidResponse.get("gameName")
                 : (String) accountResponse.get("gameName");
 
         String summonerUrl = "https://kr.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/" + puuid;
-        Map<String, Object> summonerMap = riotGet(summonerUrl, Map.class);
+        Map<String, Object> summonerMap = riotGetMap(summonerUrl);
 
         SummonerDTO summoner = new SummonerDTO();
         summoner.setPuuid(puuid);
@@ -153,25 +183,19 @@ public class SummonerService {
         }
 
         String leagueUrl = "https://kr.api.riotgames.com/lol/league/v4/entries/by-puuid/" + puuid;
-        Object[] leagueResponse = riotGet(leagueUrl, Object[].class);
+        List<Map<String, Object>> leagueResponse = riotGetListOfMaps(leagueUrl);
 
-        if (leagueResponse != null && leagueResponse.length > 0) {
-            for (Object obj : leagueResponse) {
-                Map<String, Object> data = (Map<String, Object>) obj;
-                String queueType = (String) data.get("queueType");
-                String tier = (String) data.get("tier");
-                String rankStr = (String) data.get("rank");
-                Number lpNumber = (Number) data.get("leaguePoints");
-                int lp = lpNumber != null ? lpNumber.intValue() : 0;
+        for (Map<String, Object> data : leagueResponse) {
+            String queueType = (String) data.get("queueType");
+            String tier = (String) data.get("tier");
+            String rankStr = (String) data.get("rank");
+            Number lpNumber = (Number) data.get("leaguePoints");
+            int lp = lpNumber != null ? lpNumber.intValue() : 0;
 
-                if ("RANKED_SOLO_5x5".equals(queueType)) {
-                    summoner.setSoloRank(new SummonerDTO.RankInfo(tier, rankStr, lp));
-                    summoner.setTier(tier);
-                    summoner.setRank(rankStr);
-                    summoner.setLeaguePoints(lp);
-                } else if ("RANKED_FLEX_SR".equals(queueType)) {
-                    summoner.setFlexRank(new SummonerDTO.RankInfo(tier, rankStr, lp));
-                }
+            if ("RANKED_SOLO_5x5".equals(queueType)) {
+                summoner.setSoloRank(new SummonerDTO.RankInfo(tier, rankStr, lp));
+            } else if ("RANKED_FLEX_SR".equals(queueType)) {
+                summoner.setFlexRank(new SummonerDTO.RankInfo(tier, rankStr, lp));
             }
         }
 
@@ -195,16 +219,16 @@ public class SummonerService {
 
         if (needSolo && needFlex) {
             CompletableFuture<List<String>> soloIdsFuture = CompletableFuture.supplyAsync(
-                    () -> riotMatchService.getMatchIds(puuid, 420), executorService);
+                    () -> riotMatchService.getMatchIds(puuid, 420, SCORE_SAMPLE_MATCH_LIMIT), executorService);
             CompletableFuture<List<String>> flexIdsFuture = CompletableFuture.supplyAsync(
-                    () -> riotMatchService.getMatchIds(puuid, 440), executorService);
+                    () -> riotMatchService.getMatchIds(puuid, 440, SCORE_SAMPLE_MATCH_LIMIT), executorService);
 
             soloMatchIds = soloIdsFuture.join();
             flexMatchIds = flexIdsFuture.join();
         } else if (needSolo) {
-            soloMatchIds = riotMatchService.getMatchIds(puuid, 420);
+            soloMatchIds = riotMatchService.getMatchIds(puuid, 420, SCORE_SAMPLE_MATCH_LIMIT);
         } else if (needFlex) {
-            flexMatchIds = riotMatchService.getMatchIds(puuid, 440);
+            flexMatchIds = riotMatchService.getMatchIds(puuid, 440, SCORE_SAMPLE_MATCH_LIMIT);
         }
 
         final List<String> resolvedSoloMatchIds = soloMatchIds;
@@ -311,8 +335,8 @@ public class SummonerService {
         double kdaValue = countedGames == 0
                 ? 0.0
                 : (totalDeaths == 0
-                    ? (totalKills + totalAssists)
-                    : ((double) (totalKills + totalAssists) / totalDeaths));
+                ? (totalKills + totalAssists)
+                : ((double) (totalKills + totalAssists) / totalDeaths));
 
         summary.put("wins", wins);
         summary.put("losses", losses);
@@ -320,6 +344,8 @@ public class SummonerService {
         summary.put("invalid", invalid);
         summary.put("countedGames", countedGames);
         summary.put("totalGames", matchDetails == null ? 0 : matchDetails.size());
+        summary.put("displayMatchCount", DISPLAY_MATCH_LIMIT);
+        summary.put("scoreSampleCount", SCORE_SAMPLE_MATCH_LIMIT);
         summary.put("winRate", winRate);
         summary.put("kda", String.format(Locale.US, "%.2f", kdaValue));
 
@@ -355,24 +381,35 @@ public class SummonerService {
         counts.put("counted", counted);
         counts.put("remakes", remakes);
         counts.put("invalid", invalid);
+        counts.put("displayMatchCount", DISPLAY_MATCH_LIMIT);
+        counts.put("scoreSampleCount", SCORE_SAMPLE_MATCH_LIMIT);
         return counts;
     }
 
     private String normalizeQueue(String queue) {
-        String normalizedQueue = queue == null ? "solo" : queue.toLowerCase(Locale.ROOT);
-        if (!Set.of("solo", "flex", "both").contains(normalizedQueue)) {
-            return "solo";
+        if (queue == null || queue.isBlank()) {
+            return "both";
         }
-        return normalizedQueue;
+
+        String normalized = queue.trim().toLowerCase(Locale.ROOT);
+        if (!Set.of("solo", "flex", "both").contains(normalized)) {
+            return "both";
+        }
+        return normalized;
     }
 
     private int calculateSoloLpChange(SummonerDTO currentSummoner, String puuid) {
+        if (currentSummoner.getSoloRank() == null) {
+            return 0;
+        }
+
         Optional<SummonerHistory> lastRecord = historyRepository.findFirstByPuuidOrderBySearchTimeDesc(puuid);
-        if (currentSummoner.getSoloRank() != null
-                && lastRecord.isPresent()
+        if (lastRecord.isPresent()
+                && lastRecord.get().getTier() != null
                 && lastRecord.get().getTier().equals(currentSummoner.getSoloRank().getTier())) {
             return currentSummoner.getSoloRank().getLeaguePoints() - lastRecord.get().getLeaguePoints();
         }
+
         return 0;
     }
 

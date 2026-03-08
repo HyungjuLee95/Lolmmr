@@ -1,20 +1,23 @@
 package com.example.mmrtest.service;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Service;
+
 import com.example.mmrtest.dto.CoachingComment;
 import com.example.mmrtest.dto.LaneOpponentComparison;
 import com.example.mmrtest.dto.MatchAnalysisDetail;
 import com.example.mmrtest.dto.MatchParticipantOverview;
 import com.example.mmrtest.dto.MatchResultType;
 import com.example.mmrtest.dto.MatchSummary;
+import com.example.mmrtest.dto.MatchTeamOverview;
 import com.example.mmrtest.dto.MetricCard;
+import com.example.mmrtest.dto.TeamObjectiveSummary;
 import com.example.mmrtest.dto.TimelineBucket;
-import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 
 @Service
 public class MatchAnalysisService {
@@ -26,6 +29,10 @@ public class MatchAnalysisService {
     }
 
     public MatchAnalysisDetail buildMatchAnalysis(String puuid, String matchId) {
+        return buildMatchAnalysis(puuid, matchId, 3);
+    }
+
+    public MatchAnalysisDetail buildMatchAnalysis(String puuid, String matchId, int bucketMinutes) {
         MatchSummary summary = riotMatchService.fetchMatchDetail(puuid, matchId);
         if (summary == null) {
             return null;
@@ -51,11 +58,21 @@ public class MatchAnalysisService {
             return null;
         }
 
+        Map<String, Object> timelineRaw = null;
+        try {
+            timelineRaw = riotMatchService.fetchMatchTimelineRaw(matchId);
+        } catch (Exception ignored) {
+            // 타임라인이 없어도 일부 분석은 가능
+        }
+
+        int normalizedBucketMinutes = normalizeBucketMinutes(bucketMinutes);
+
         MatchAnalysisDetail detail = new MatchAnalysisDetail();
         detail.setMatchId(matchId);
         detail.setPuuid(puuid);
         detail.setSummary(summary);
         detail.setResultType(summary.getResultType());
+        detail.setBucketMinutes(normalizedBucketMinutes);
 
         List<MatchParticipantOverview> blueTeam = new ArrayList<>();
         List<MatchParticipantOverview> redTeam = new ArrayList<>();
@@ -72,6 +89,9 @@ public class MatchAnalysisService {
         detail.setBlueTeamPlayers(blueTeam);
         detail.setRedTeamPlayers(redTeam);
 
+        detail.setBlueTeamSummary(buildTeamSummary(100, blueTeam, timelineRaw));
+        detail.setRedTeamSummary(buildTeamSummary(200, redTeam, timelineRaw));
+
         Map<String, Object> laneOpponent = findLaneOpponent(me, participants);
         detail.setLaneComparison(buildLaneComparison(me, laneOpponent));
 
@@ -84,9 +104,119 @@ public class MatchAnalysisService {
 
         detail.setMetricCards(buildMetricCards(me, participants, summary));
         detail.setCoachingComments(buildCoachingComments(me, summary, detail.getLaneComparison()));
-        detail.setTimelineBuckets(buildTimelineBuckets(matchId, me, laneOpponent, summary));
+        detail.setTimelineBuckets(buildTimelineBuckets(timelineRaw, me, laneOpponent, summary, normalizedBucketMinutes));
 
         return detail;
+    }
+
+    private MatchTeamOverview buildTeamSummary(
+            int teamId,
+            List<MatchParticipantOverview> teamPlayers,
+            Map<String, Object> timelineRaw
+    ) {
+        MatchTeamOverview summary = new MatchTeamOverview();
+        summary.setTeamId(teamId);
+
+        if (teamPlayers == null || teamPlayers.isEmpty()) {
+            summary.setWin(false);
+            summary.setKills(0);
+            summary.setDeaths(0);
+            summary.setTotalGold(0);
+            summary.setObjectives(new TeamObjectiveSummary());
+            return summary;
+        }
+
+        int kills = 0;
+        int deaths = 0;
+        int totalGold = 0;
+
+        for (MatchParticipantOverview player : teamPlayers) {
+            kills += player.getKills();
+            deaths += player.getDeaths();
+            totalGold += player.getGoldEarned();
+        }
+
+        summary.setWin(false);
+        summary.setKills(kills);
+        summary.setDeaths(deaths);
+        summary.setTotalGold(totalGold);
+        summary.setObjectives(buildObjectiveSummary(timelineRaw, teamId));
+
+        return summary;
+    }
+
+    private TeamObjectiveSummary buildObjectiveSummary(Map<String, Object> timelineRaw, int teamId) {
+        TeamObjectiveSummary objectives = new TeamObjectiveSummary();
+
+        if (timelineRaw == null) {
+            return objectives;
+        }
+
+        Map<String, Object> info = asMap(timelineRaw.get("info"));
+        if (info == null) {
+            return objectives;
+        }
+
+        List<Map<String, Object>> frames = asListOfMaps(info.get("frames"));
+        if (frames.isEmpty()) {
+            return objectives;
+        }
+
+        for (Map<String, Object> frame : frames) {
+            List<Map<String, Object>> events = asListOfMaps(frame.get("events"));
+
+            for (Map<String, Object> event : events) {
+                String type = getString(event, "type", "");
+
+                if ("ELITE_MONSTER_KILL".equals(type)) {
+                    int killerTeamId = resolveEventTeamId(event);
+                    if (killerTeamId != teamId) {
+                        continue;
+                    }
+
+                    String monsterType = getString(event, "monsterType", "");
+                    switch (monsterType) {
+                        case "DRAGON" -> objectives.setDragons(objectives.getDragons() + 1);
+                        case "RIFTHERALD" -> objectives.setHeralds(objectives.getHeralds() + 1);
+                        case "BARON_NASHOR" -> objectives.setBarons(objectives.getBarons() + 1);
+                        case "HORDE" -> objectives.setVoidgrubs(objectives.getVoidgrubs() + 1);
+                        default -> {
+                        }
+                    }
+                }
+
+                if ("BUILDING_KILL".equals(type)) {
+                    int killerTeamId = resolveEventTeamId(event);
+                    if (killerTeamId != teamId) {
+                        continue;
+                    }
+
+                    String buildingType = getString(event, "buildingType", "");
+                    if ("TOWER_BUILDING".equals(buildingType)) {
+                        objectives.setTowers(objectives.getTowers() + 1);
+                    }
+                }
+            }
+        }
+
+        return objectives;
+    }
+
+    private int resolveEventTeamId(Map<String, Object> event) {
+        int teamId = getInt(event, "teamId", 0);
+        if (teamId == 100 || teamId == 200) {
+            return teamId;
+        }
+
+        int killerId = getInt(event, "killerId", 0);
+        if (killerId >= 1 && killerId <= 5) {
+            return 100;
+        }
+        if (killerId >= 6 && killerId <= 10) {
+            return 200;
+        }
+
+        return 0;
     }
 
     private List<CoachingComment> buildExcludedMatchComments(MatchSummary summary) {
@@ -373,21 +503,21 @@ public class MatchAnalysisService {
         comments.add(new CoachingComment(
                 "warning",
                 "타임라인 기반 분석",
-                "타임라인 프레임이 있으면 실제 시간축 데이터로, 없으면 추정 버킷으로 성장 추이를 표시합니다."
+                "시간 구간별로 내 수치와 상대 수치를 함께 비교할 수 있도록 버킷 데이터를 구성했습니다."
         ));
 
         return comments;
     }
 
     private List<TimelineBucket> buildTimelineBuckets(
-            String matchId,
+            Map<String, Object> timelineRaw,
             Map<String, Object> me,
             Map<String, Object> opponent,
-            MatchSummary summary
+            MatchSummary summary,
+            int bucketMinutes
     ) {
         try {
-            Map<String, Object> timelineRaw = riotMatchService.fetchMatchTimelineRaw(matchId);
-            List<TimelineBucket> actual = buildActualTimelineBuckets(timelineRaw, me, opponent, summary);
+            List<TimelineBucket> actual = buildActualTimelineBuckets(timelineRaw, me, opponent, summary, bucketMinutes);
             if (!actual.isEmpty()) {
                 return actual;
             }
@@ -395,14 +525,15 @@ public class MatchAnalysisService {
             e.printStackTrace();
         }
 
-        return buildEstimatedTimelineBuckets(me, opponent, summary);
+        return buildEstimatedTimelineBuckets(me, opponent, summary, bucketMinutes);
     }
 
     private List<TimelineBucket> buildActualTimelineBuckets(
             Map<String, Object> timelineRaw,
             Map<String, Object> me,
             Map<String, Object> opponent,
-            MatchSummary summary
+            MatchSummary summary,
+            int bucketMinutes
     ) {
         if (timelineRaw == null || me == null || summary == null) {
             return Collections.emptyList();
@@ -425,7 +556,7 @@ public class MatchAnalysisService {
             return Collections.emptyList();
         }
 
-        List<Integer> checkpoints = buildCheckpoints(summary.getGameDurationMinutes());
+        List<Integer> checkpoints = buildCheckpoints(summary.getGameDurationMinutes(), bucketMinutes);
         List<TimelineBucket> buckets = new ArrayList<>();
 
         for (int minute : checkpoints) {
@@ -442,7 +573,10 @@ public class MatchAnalysisService {
 
             Map<String, Object> oppFrame = opponentParticipantId == 0 ? null : getParticipantFrame(frame, opponentParticipantId);
 
-            TimelineEventStats eventStats = collectEventStatsUntil(frames, targetTimestamp, myParticipantId);
+            TimelineEventStats myEventStats = collectEventStatsUntil(frames, targetTimestamp, myParticipantId);
+            TimelineEventStats oppEventStats = opponentParticipantId == 0
+                    ? new TimelineEventStats()
+                    : collectEventStatsUntil(frames, targetTimestamp, opponentParticipantId);
 
             int myGold = getInt(myFrame, "totalGold", 0);
             int myCs = getInt(myFrame, "minionsKilled", 0) + getInt(myFrame, "jungleMinionsKilled", 0);
@@ -458,41 +592,61 @@ public class MatchAnalysisService {
             int csDiff = myCs - oppCs;
             int xpDiff = myXp - oppXp;
 
-            double growth = 50.0
-                    + goldDiff / 150.0
-                    + csDiff * 1.2
-                    + xpDiff / 120.0;
+            double myGrowth = calculateGrowthScore(myGold, myCs, myXp, goldDiff, csDiff, xpDiff);
+            double opponentGrowth = calculateGrowthScore(oppGold, oppCs, oppXp, -goldDiff, -csDiff, -xpDiff);
 
-            double combat = 45.0
-                    + eventStats.kills * 9.0
-                    + eventStats.assists * 5.0
-                    - eventStats.deaths * 12.0;
+            double myCombat = calculateCombatScore(myEventStats);
+            double opponentCombat = calculateCombatScore(oppEventStats);
 
-            double map = 40.0
-                    + eventStats.wardsPlaced * 2.5
-                    + eventStats.wardsKilled * 4.0
-                    + eventStats.objectiveScore * 6.0;
+            double myMap = calculateMapScore(myEventStats);
+            double opponentMap = calculateMapScore(oppEventStats);
 
-            double survival = 70.0 - eventStats.deaths * 12.0;
+            double mySurvival = calculateSurvivalScore(myEventStats, myLevel);
+            double opponentSurvival = calculateSurvivalScore(oppEventStats, oppLevel);
 
-            double impact = growth * 0.35
-                    + combat * 0.30
-                    + map * 0.20
-                    + survival * 0.15;
+            double myImpact = calculateImpactScore(myGrowth, myCombat, myMap, mySurvival);
+            double opponentImpact = calculateImpactScore(opponentGrowth, opponentCombat, opponentMap, opponentSurvival);
 
             TimelineBucket bucket = new TimelineBucket();
             bucket.setMinute(minute);
+
             bucket.setTotalGold(myGold);
             bucket.setTotalCs(myCs);
             bucket.setLevel(myLevel);
+
+            bucket.setMyGold(myGold);
+            bucket.setOpponentGold(oppGold);
+            bucket.setMyCs(myCs);
+            bucket.setOpponentCs(oppCs);
+            bucket.setMyXp(myXp);
+            bucket.setOpponentXp(oppXp);
+            bucket.setMyLevel(myLevel);
+            bucket.setOpponentLevel(oppLevel);
+
             bucket.setGoldDiffVsLane(goldDiff);
             bucket.setCsDiffVsLane(csDiff);
             bucket.setXpDiffVsLane(xpDiff);
-            bucket.setGrowthScore(round1(clampDouble(growth, 0, 100)));
-            bucket.setCombatScore(round1(clampDouble(combat, 0, 100)));
-            bucket.setMapScore(round1(clampDouble(map, 0, 100)));
-            bucket.setSurvivalScore(round1(clampDouble(survival, 0, 100)));
-            bucket.setImpactScore(round1(clampDouble(impact, 0, 100)));
+
+            bucket.setGrowthScore(round1(myGrowth));
+            bucket.setCombatScore(round1(myCombat));
+            bucket.setMapScore(round1(myMap));
+            bucket.setSurvivalScore(round1(mySurvival));
+            bucket.setImpactScore(round1(myImpact));
+
+            bucket.setMyGrowthScore(round1(myGrowth));
+            bucket.setOpponentGrowthScore(round1(opponentGrowth));
+
+            bucket.setMyCombatScore(round1(myCombat));
+            bucket.setOpponentCombatScore(round1(opponentCombat));
+
+            bucket.setMyMapScore(round1(myMap));
+            bucket.setOpponentMapScore(round1(opponentMap));
+
+            bucket.setMySurvivalScore(round1(mySurvival));
+            bucket.setOpponentSurvivalScore(round1(opponentSurvival));
+
+            bucket.setMyImpactScore(round1(myImpact));
+            bucket.setOpponentImpactScore(round1(opponentImpact));
 
             buckets.add(bucket);
         }
@@ -500,10 +654,189 @@ public class MatchAnalysisService {
         return buckets;
     }
 
+    private List<TimelineBucket> buildEstimatedTimelineBuckets(
+            Map<String, Object> me,
+            Map<String, Object> opponent,
+            MatchSummary summary,
+            int bucketMinutes
+    ) {
+        List<TimelineBucket> buckets = new ArrayList<>();
+        if (me == null || summary == null) {
+            return buckets;
+        }
+
+        int duration = Math.max(summary.getGameDurationMinutes(), 1);
+
+        int myFinalGold = getInt(me, "goldEarned", 0);
+        int myFinalCs = getTotalCs(me);
+        int myFinalLevel = getInt(me, "champLevel", 1);
+        int myFinalXp = estimateXpFromLevel(myFinalLevel);
+
+        int oppFinalGold = opponent == null ? 0 : getInt(opponent, "goldEarned", 0);
+        int oppFinalCs = opponent == null ? 0 : getTotalCs(opponent);
+        int oppFinalLevel = opponent == null ? 1 : getInt(opponent, "champLevel", 1);
+        int oppFinalXp = estimateXpFromLevel(oppFinalLevel);
+
+        int myFinalKills = getInt(me, "kills", 0);
+        int myFinalAssists = getInt(me, "assists", 0);
+        int myFinalDeaths = getInt(me, "deaths", 0);
+        int myVision = getInt(me, "visionScore", 0);
+
+        int oppFinalKills = opponent == null ? 0 : getInt(opponent, "kills", 0);
+        int oppFinalAssists = opponent == null ? 0 : getInt(opponent, "assists", 0);
+        int oppFinalDeaths = opponent == null ? 0 : getInt(opponent, "deaths", 0);
+        int oppVision = opponent == null ? 0 : getInt(opponent, "visionScore", 0);
+
+        List<Integer> checkpoints = buildCheckpoints(duration, bucketMinutes);
+
+        for (int minute : checkpoints) {
+            double ratio = minute / (double) duration;
+
+            int myGold = (int) Math.round(myFinalGold * ratio);
+            int myCs = (int) Math.round(myFinalCs * ratio);
+            int myLevel = Math.max(1, (int) Math.round(myFinalLevel * ratio));
+            int myXp = (int) Math.round(myFinalXp * ratio);
+
+            int oppGold = (int) Math.round(oppFinalGold * ratio);
+            int oppCs = (int) Math.round(oppFinalCs * ratio);
+            int oppLevel = Math.max(1, (int) Math.round(oppFinalLevel * ratio));
+            int oppXp = (int) Math.round(oppFinalXp * ratio);
+
+            int goldDiff = myGold - oppGold;
+            int csDiff = myCs - oppCs;
+            int xpDiff = myXp - oppXp;
+
+            TimelineEventStats myEventStats = new TimelineEventStats();
+            myEventStats.kills = (int) Math.round(myFinalKills * ratio);
+            myEventStats.assists = (int) Math.round(myFinalAssists * ratio);
+            myEventStats.deaths = (int) Math.round(myFinalDeaths * ratio);
+            myEventStats.wardsPlaced = (int) Math.round(myVision * ratio * 0.55);
+            myEventStats.wardsKilled = (int) Math.round(myVision * ratio * 0.20);
+            myEventStats.objectiveScore = (int) Math.round((myFinalKills + myFinalAssists) * ratio * 0.35);
+
+            TimelineEventStats oppEventStats = new TimelineEventStats();
+            oppEventStats.kills = (int) Math.round(oppFinalKills * ratio);
+            oppEventStats.assists = (int) Math.round(oppFinalAssists * ratio);
+            oppEventStats.deaths = (int) Math.round(oppFinalDeaths * ratio);
+            oppEventStats.wardsPlaced = (int) Math.round(oppVision * ratio * 0.55);
+            oppEventStats.wardsKilled = (int) Math.round(oppVision * ratio * 0.20);
+            oppEventStats.objectiveScore = (int) Math.round((oppFinalKills + oppFinalAssists) * ratio * 0.35);
+
+            double myGrowth = calculateGrowthScore(myGold, myCs, myXp, goldDiff, csDiff, xpDiff);
+            double opponentGrowth = calculateGrowthScore(oppGold, oppCs, oppXp, -goldDiff, -csDiff, -xpDiff);
+
+            double myCombat = calculateCombatScore(myEventStats);
+            double opponentCombat = calculateCombatScore(oppEventStats);
+
+            double myMap = calculateMapScore(myEventStats);
+            double opponentMap = calculateMapScore(oppEventStats);
+
+            double mySurvival = calculateSurvivalScore(myEventStats, myLevel);
+            double opponentSurvival = calculateSurvivalScore(oppEventStats, oppLevel);
+
+            double myImpact = calculateImpactScore(myGrowth, myCombat, myMap, mySurvival);
+            double opponentImpact = calculateImpactScore(opponentGrowth, opponentCombat, opponentMap, opponentSurvival);
+
+            TimelineBucket bucket = new TimelineBucket();
+            bucket.setMinute(minute);
+
+            bucket.setTotalGold(myGold);
+            bucket.setTotalCs(myCs);
+            bucket.setLevel(myLevel);
+
+            bucket.setMyGold(myGold);
+            bucket.setOpponentGold(oppGold);
+            bucket.setMyCs(myCs);
+            bucket.setOpponentCs(oppCs);
+            bucket.setMyXp(myXp);
+            bucket.setOpponentXp(oppXp);
+            bucket.setMyLevel(myLevel);
+            bucket.setOpponentLevel(oppLevel);
+
+            bucket.setGoldDiffVsLane(goldDiff);
+            bucket.setCsDiffVsLane(csDiff);
+            bucket.setXpDiffVsLane(xpDiff);
+
+            bucket.setGrowthScore(round1(myGrowth));
+            bucket.setCombatScore(round1(myCombat));
+            bucket.setMapScore(round1(myMap));
+            bucket.setSurvivalScore(round1(mySurvival));
+            bucket.setImpactScore(round1(myImpact));
+
+            bucket.setMyGrowthScore(round1(myGrowth));
+            bucket.setOpponentGrowthScore(round1(opponentGrowth));
+
+            bucket.setMyCombatScore(round1(myCombat));
+            bucket.setOpponentCombatScore(round1(opponentCombat));
+
+            bucket.setMyMapScore(round1(myMap));
+            bucket.setOpponentMapScore(round1(opponentMap));
+
+            bucket.setMySurvivalScore(round1(mySurvival));
+            bucket.setOpponentSurvivalScore(round1(opponentSurvival));
+
+            bucket.setMyImpactScore(round1(myImpact));
+            bucket.setOpponentImpactScore(round1(opponentImpact));
+
+            buckets.add(bucket);
+        }
+
+        return buckets;
+    }
+
+    private double calculateGrowthScore(int gold, int cs, int xp, int goldDiff, int csDiff, int xpDiff) {
+        double goldComponent = Math.min(35.0, gold / 450.0);
+        double csComponent = Math.min(25.0, cs / 6.0);
+        double xpComponent = Math.min(20.0, xp / 280.0);
+        double diffComponent = clampDouble(
+                goldDiff / 180.0 + csDiff * 0.9 + xpDiff / 160.0,
+                -15.0,
+                15.0
+        );
+
+        return clampDouble(10.0 + goldComponent + csComponent + xpComponent + diffComponent, 0.0, 100.0);
+    }
+
+    private double calculateCombatScore(TimelineEventStats stats) {
+        double score = 40.0
+                + stats.kills * 10.0
+                + stats.assists * 5.0
+                - stats.deaths * 12.0;
+        return clampDouble(score, 0.0, 100.0);
+    }
+
+    private double calculateMapScore(TimelineEventStats stats) {
+        double score = 35.0
+                + stats.wardsPlaced * 2.0
+                + stats.wardsKilled * 3.5
+                + stats.objectiveScore * 5.0;
+        return clampDouble(score, 0.0, 100.0);
+    }
+
+    private double calculateSurvivalScore(TimelineEventStats stats, int level) {
+        double score = 80.0
+                - stats.deaths * 12.0
+                + Math.min(8.0, level * 0.6);
+        return clampDouble(score, 0.0, 100.0);
+    }
+
+    private double calculateImpactScore(double growth, double combat, double map, double survival) {
+        return clampDouble(
+                growth * 0.35 + combat * 0.30 + map * 0.20 + survival * 0.15,
+                0.0,
+                100.0
+        );
+    }
+
+    private int estimateXpFromLevel(int level) {
+        int safeLevel = Math.max(1, level);
+        return safeLevel * safeLevel * 100;
+    }
+
     private TimelineEventStats collectEventStatsUntil(
             List<Map<String, Object>> frames,
             long targetTimestamp,
-            int myParticipantId
+            int participantId
     ) {
         TimelineEventStats stats = new TimelineEventStats();
 
@@ -522,27 +855,27 @@ public class MatchAnalysisService {
                     int victimId = getInt(event, "victimId", 0);
                     List<Integer> assistingIds = getIntList(event.get("assistingParticipantIds"));
 
-                    if (killerId == myParticipantId) {
+                    if (killerId == participantId) {
                         stats.kills++;
                     }
-                    if (victimId == myParticipantId) {
+                    if (victimId == participantId) {
                         stats.deaths++;
                     }
-                    if (assistingIds.contains(myParticipantId)) {
+                    if (assistingIds.contains(participantId)) {
                         stats.assists++;
                     }
                 }
 
                 if ("WARD_PLACED".equals(type)) {
                     int creatorId = getInt(event, "creatorId", 0);
-                    if (creatorId == myParticipantId) {
+                    if (creatorId == participantId) {
                         stats.wardsPlaced++;
                     }
                 }
 
                 if ("WARD_KILL".equals(type)) {
                     int killerId = getInt(event, "killerId", 0);
-                    if (killerId == myParticipantId) {
+                    if (killerId == participantId) {
                         stats.wardsKilled++;
                     }
                 }
@@ -552,9 +885,9 @@ public class MatchAnalysisService {
                     List<Integer> assistingIds = getIntList(event.get("assistingParticipantIds"));
                     int score = objectiveMonsterScore(getString(event, "monsterType", ""));
 
-                    if (killerId == myParticipantId) {
+                    if (killerId == participantId) {
                         stats.objectiveScore += score;
-                    } else if (assistingIds.contains(myParticipantId)) {
+                    } else if (assistingIds.contains(participantId)) {
                         stats.objectiveScore += Math.max(1, score / 2);
                     }
                 }
@@ -563,9 +896,9 @@ public class MatchAnalysisService {
                     int killerId = getInt(event, "killerId", 0);
                     List<Integer> assistingIds = getIntList(event.get("assistingParticipantIds"));
 
-                    if (killerId == myParticipantId) {
+                    if (killerId == participantId) {
                         stats.objectiveScore += 2;
-                    } else if (assistingIds.contains(myParticipantId)) {
+                    } else if (assistingIds.contains(participantId)) {
                         stats.objectiveScore += 1;
                     }
                 }
@@ -627,69 +960,13 @@ public class MatchAnalysisService {
         return null;
     }
 
-    private List<TimelineBucket> buildEstimatedTimelineBuckets(
-            Map<String, Object> me,
-            Map<String, Object> opponent,
-            MatchSummary summary
-    ) {
-        List<TimelineBucket> buckets = new ArrayList<>();
-        if (me == null || summary == null) {
-            return buckets;
-        }
+    private List<Integer> buildCheckpoints(int durationMinutes, int bucketMinutes) {
+        int step = normalizeBucketMinutes(bucketMinutes);
 
-        int duration = Math.max(summary.getGameDurationMinutes(), 1);
-        int finalGold = getInt(me, "goldEarned", 0);
-        int finalCs = getTotalCs(me);
-        int finalLevel = getInt(me, "champLevel", 1);
-
-        int oppGold = opponent == null ? 0 : getInt(opponent, "goldEarned", 0);
-        int oppCs = opponent == null ? 0 : getTotalCs(opponent);
-        int oppLevel = opponent == null ? 1 : getInt(opponent, "champLevel", 1);
-
-        List<Integer> checkpoints = buildCheckpoints(duration);
-
-        for (int minute : checkpoints) {
-            double ratio = minute / (double) duration;
-
-            TimelineBucket bucket = new TimelineBucket();
-            bucket.setMinute(minute);
-            bucket.setTotalGold((int) Math.round(finalGold * ratio));
-            bucket.setTotalCs((int) Math.round(finalCs * ratio));
-            bucket.setLevel(Math.max(1, (int) Math.round(finalLevel * ratio)));
-
-            bucket.setGoldDiffVsLane((int) Math.round((finalGold - oppGold) * ratio));
-            bucket.setCsDiffVsLane((int) Math.round((finalCs - oppCs) * ratio));
-            bucket.setXpDiffVsLane((int) Math.round((finalLevel - oppLevel) * ratio));
-
-            double growth = 50.0
-                    + bucket.getGoldDiffVsLane() / 120.0
-                    + bucket.getCsDiffVsLane() * 0.8
-                    + bucket.getXpDiffVsLane() * 8.0;
-
-            double combat = 50.0
-                    + (getInt(me, "kills", 0) + getInt(me, "assists", 0) - getInt(me, "deaths", 0)) * ratio * 5.0;
-
-            double map = 45.0 + getInt(me, "visionScore", 0) * ratio * 0.6;
-            double survival = 60.0 - getInt(me, "deaths", 0) * ratio * 6.0;
-            double impact = growth * 0.35 + combat * 0.30 + map * 0.20 + survival * 0.15;
-
-            bucket.setGrowthScore(round1(clampDouble(growth, 0, 100)));
-            bucket.setCombatScore(round1(clampDouble(combat, 0, 100)));
-            bucket.setMapScore(round1(clampDouble(map, 0, 100)));
-            bucket.setSurvivalScore(round1(clampDouble(survival, 0, 100)));
-            bucket.setImpactScore(round1(clampDouble(impact, 0, 100)));
-
-            buckets.add(bucket);
-        }
-
-        return buckets;
-    }
-
-    private List<Integer> buildCheckpoints(int durationMinutes) {
         List<Integer> checkpoints = new ArrayList<>();
         checkpoints.add(0);
 
-        for (int minute = 5; minute < durationMinutes; minute += 5) {
+        for (int minute = step; minute < durationMinutes; minute += step) {
             checkpoints.add(minute);
         }
 
@@ -698,6 +975,13 @@ public class MatchAnalysisService {
         }
 
         return checkpoints;
+    }
+
+    private int normalizeBucketMinutes(int bucketMinutes) {
+        if (bucketMinutes == 5 || bucketMinutes == 10) {
+            return bucketMinutes;
+        }
+        return 3;
     }
 
     private Map<String, Object> findParticipantByPuuid(List<Map<String, Object>> participants, String puuid) {
@@ -829,7 +1113,6 @@ public class MatchAnalysisService {
         return result;
     }
 
-    @SuppressWarnings("unchecked")
     private List<Integer> getIntList(Object value) {
         if (!(value instanceof List<?> list)) {
             return Collections.emptyList();

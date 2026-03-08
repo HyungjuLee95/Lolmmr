@@ -1,0 +1,24 @@
+{
+  "properties": [
+    {
+      "name": "riot.api.key",
+      "type": "java.lang.String",
+      "description": "Riot API key used for Riot Games API requests."
+    },
+    {
+      "name": "dev.allowlist.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable or disable development allowlist checks."
+    },
+    {
+      "name": "dev.allowlist.riotIds",
+      "type": "java.util.List<java.lang.String>",
+      "description": "Allowed Riot IDs for development mode."
+    },
+    {
+      "name": "score.calibration-log-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable calibration logging for score calculations."
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
   LineChart,
@@ -62,7 +62,101 @@ const RESULT_STYLE = {
   },
 };
 
+const TIMELINE_METRIC_OPTIONS = [
+  {
+    key: 'gold',
+    label: '골드',
+    myDataKey: 'myGold',
+    opponentDataKey: 'opponentGold',
+    unit: '골드',
+    formatter: (value) => Number(value || 0).toLocaleString(),
+  },
+  {
+    key: 'xp',
+    label: '경험치',
+    myDataKey: 'myXp',
+    opponentDataKey: 'opponentXp',
+    unit: 'XP',
+    formatter: (value) => Number(value || 0).toLocaleString(),
+  },
+  {
+    key: 'cs',
+    label: 'CS',
+    myDataKey: 'myCs',
+    opponentDataKey: 'opponentCs',
+    unit: 'CS',
+    formatter: (value) => Number(value || 0).toLocaleString(),
+  },
+  {
+    key: 'growth',
+    label: '성장 점수',
+    myDataKey: 'myGrowth',
+    opponentDataKey: 'opponentGrowth',
+    unit: '점',
+    formatter: (value) => Number(value || 0).toFixed(1),
+  },
+  {
+    key: 'combat',
+    label: '전투 점수',
+    myDataKey: 'myCombat',
+    opponentDataKey: 'opponentCombat',
+    unit: '점',
+    formatter: (value) => Number(value || 0).toFixed(1),
+  },
+  {
+    key: 'map',
+    label: '맵 점수',
+    myDataKey: 'myMap',
+    opponentDataKey: 'opponentMap',
+    unit: '점',
+    formatter: (value) => Number(value || 0).toFixed(1),
+  },
+  {
+    key: 'survival',
+    label: '생존 점수',
+    myDataKey: 'mySurvival',
+    opponentDataKey: 'opponentSurvival',
+    unit: '점',
+    formatter: (value) => Number(value || 0).toFixed(1),
+  },
+  {
+    key: 'impact',
+    label: '영향력 점수',
+    myDataKey: 'myImpact',
+    opponentDataKey: 'opponentImpact',
+    unit: '점',
+    formatter: (value) => Number(value || 0).toFixed(1),
+  },
+];
+
+const BUCKET_OPTIONS = [3, 5, 10];
+
 const getResultStyle = (resultType) => RESULT_STYLE[resultType] || RESULT_STYLE.INVALID;
+
+const normalizePosition = (position) => {
+  if (!position) return 'UNKNOWN';
+
+  const raw = String(position).toUpperCase();
+
+  switch (raw) {
+    case 'TOP':
+      return 'TOP';
+    case 'JUNGLE':
+      return 'JG';
+    case 'MIDDLE':
+    case 'MID':
+      return 'MID';
+    case 'BOTTOM':
+    case 'ADC':
+      return 'ADC';
+    case 'UTILITY':
+    case 'SUPPORT':
+    case 'SUP':
+      return 'SUP';
+    default:
+      return raw;
+  }
+};
 
 const getTeamHeaderLabel = (team, fallbackTeamName) => {
   if (!team?.hasWinner) {
@@ -92,14 +186,6 @@ const buildRadarData = (metricCards) => {
   });
 };
 
-const buildTimelineData = (timelineBuckets = []) =>
-  timelineBuckets.map((bucket) => ({
-    time: String(bucket.minute),
-    gold: bucket.totalGold || 0,
-    cs: bucket.totalCs || 0,
-    impact: bucket.impactScore || 0,
-  }));
-
 const formatMetricValue = (metric) => {
   if (!metric) return '-';
   if (metric.unit) {
@@ -108,19 +194,32 @@ const formatMetricValue = (metric) => {
   return String(metric.value);
 };
 
-const toOverviewPlayer = (player) => ({
+const formatGold = (value) => `${(Number(value || 0) / 1000).toFixed(1)}k`;
+
+const formatObjectiveSummary = (objectives = {}) => {
+  const dragons = objectives.dragons || 0;
+  const heralds = objectives.heralds || 0;
+  const barons = objectives.barons || 0;
+  const towers = objectives.towers || 0;
+  const voidgrubs = objectives.voidgrubs || 0;
+
+  return `드 ${dragons} · 전 ${heralds} · 바 ${barons} · 타 ${towers} · 그 ${voidgrubs}`;
+};
+
+const toOverviewPlayer = (player, maxDamage) => ({
   id: player.participantId,
-  name: player.riotId,
-  champion: player.championName,
-  position: player.teamPosition,
-  kills: player.kills,
-  deaths: player.deaths,
-  assists: player.assists,
-  damage: player.damageToChampions,
-  gold: player.goldEarned,
-  cs: player.totalCs,
+  name: player.riotId || 'Unknown',
+  champion: player.championName || 'Ahri',
+  position: normalizePosition(player.teamPosition),
+  kills: player.kills || 0,
+  deaths: player.deaths || 0,
+  assists: player.assists || 0,
+  damage: player.damageToChampions || 0,
+  gold: player.goldEarned || 0,
+  cs: player.totalCs || 0,
   items: player.items || [],
-  isMe: player.me,
+  isMe: Boolean(player.me),
+  maxDamage,
 });
 
 const buildOverviewFromAnalysis = (analysisDetail, fallbackOverview) => {
@@ -128,15 +227,19 @@ const buildOverviewFromAnalysis = (analysisDetail, fallbackOverview) => {
     return fallbackOverview;
   }
 
-  const bluePlayers = analysisDetail.blueTeamPlayers.map(toOverviewPlayer);
-  const redPlayers = analysisDetail.redTeamPlayers.map(toOverviewPlayer);
+  const rawBluePlayers = analysisDetail.blueTeamPlayers || [];
+  const rawRedPlayers = analysisDetail.redTeamPlayers || [];
+  const allPlayers = [...rawBluePlayers, ...rawRedPlayers];
+  const maxDamage = Math.max(...allPlayers.map((player) => player?.damageToChampions || 0), 1);
+
+  const bluePlayers = rawBluePlayers.map((player) => toOverviewPlayer(player, maxDamage));
+  const redPlayers = rawRedPlayers.map((player) => toOverviewPlayer(player, maxDamage));
 
   const countedGame = !['REMAKE', 'INVALID'].includes(analysisDetail.resultType);
-  const meInBlue = analysisDetail.blueTeamPlayers.some((p) => p.me);
-  const meInRed = analysisDetail.redTeamPlayers.some((p) => p.me);
+  const meInBlue = rawBluePlayers.some((p) => p.me);
+  const meInRed = rawRedPlayers.some((p) => p.me);
 
   let blueWin = false;
-
   if (countedGame) {
     if (meInBlue) {
       blueWin = analysisDetail.resultType === 'WIN';
@@ -147,38 +250,93 @@ const buildOverviewFromAnalysis = (analysisDetail, fallbackOverview) => {
     }
   }
 
+  const blueSummary = analysisDetail.blueTeamSummary || {};
+  const redSummary = analysisDetail.redTeamSummary || {};
+
   return {
     blueTeam: {
       isWin: blueWin,
       hasWinner: countedGame,
-      kills: bluePlayers.reduce((sum, p) => sum + (p.kills || 0), 0),
+      kills: Number(blueSummary.kills ?? bluePlayers.reduce((sum, p) => sum + (p.kills || 0), 0)),
+      deaths: Number(blueSummary.deaths ?? bluePlayers.reduce((sum, p) => sum + (p.deaths || 0), 0)),
+      gold: formatGold(
+        blueSummary.totalGold ?? bluePlayers.reduce((sum, p) => sum + (p.gold || 0), 0),
+      ),
+      objectives: blueSummary.objectives || {},
       players: bluePlayers,
     },
     redTeam: {
       isWin: countedGame ? !blueWin : false,
       hasWinner: countedGame,
-      kills: redPlayers.reduce((sum, p) => sum + (p.kills || 0), 0),
+      kills: Number(redSummary.kills ?? redPlayers.reduce((sum, p) => sum + (p.kills || 0), 0)),
+      deaths: Number(redSummary.deaths ?? redPlayers.reduce((sum, p) => sum + (p.deaths || 0), 0)),
+      gold: formatGold(
+        redSummary.totalGold ?? redPlayers.reduce((sum, p) => sum + (p.gold || 0), 0),
+      ),
+      objectives: redSummary.objectives || {},
       players: redPlayers,
     },
   };
+};
+
+const buildTimelineData = (timelineBuckets = []) =>
+  timelineBuckets.map((bucket) => ({
+    time: String(bucket.minute ?? 0),
+
+    myGold: bucket.myGold ?? bucket.totalGold ?? 0,
+    opponentGold: bucket.opponentGold ?? 0,
+
+    myXp: bucket.myXp ?? 0,
+    opponentXp: bucket.opponentXp ?? 0,
+
+    myCs: bucket.myCs ?? bucket.totalCs ?? 0,
+    opponentCs: bucket.opponentCs ?? 0,
+
+    myGrowth: bucket.myGrowthScore ?? bucket.growthScore ?? 0,
+    opponentGrowth: bucket.opponentGrowthScore ?? 0,
+
+    myCombat: bucket.myCombatScore ?? bucket.combatScore ?? 0,
+    opponentCombat: bucket.opponentCombatScore ?? 0,
+
+    myMap: bucket.myMapScore ?? bucket.mapScore ?? 0,
+    opponentMap: bucket.opponentMapScore ?? 0,
+
+    mySurvival: bucket.mySurvivalScore ?? bucket.survivalScore ?? 0,
+    opponentSurvival: bucket.opponentSurvivalScore ?? 0,
+
+    myImpact: bucket.myImpactScore ?? bucket.impactScore ?? 0,
+    opponentImpact: bucket.opponentImpactScore ?? 0,
+  }));
+
+const getTimelineMetricMeta = (metricKey) =>
+  TIMELINE_METRIC_OPTIONS.find((option) => option.key === metricKey) || TIMELINE_METRIC_OPTIONS[0];
+
+const formatTooltipValue = (value, unit, formatter) => {
+  const display = formatter ? formatter(value) : String(value);
+  return [`${display} ${unit}`, ''];
 };
 
 const MatchCard = ({ match, isExpanded, onToggle }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [analysisDetail, setAnalysisDetail] = useState(null);
   const [analysisError, setAnalysisError] = useState('');
-  const analysisRequestedRef = useRef(false);
+  const [analysisErrorKey, setAnalysisErrorKey] = useState('');
+  const [bucketMinutes, setBucketMinutes] = useState(3);
+  const [timelineMetric, setTimelineMetric] = useState('gold');
 
   const resultType = match.resultType || (match.win ? 'WIN' : 'LOSS');
   const resultLabel = match.resultLabel || (match.win ? '승리' : '패배');
   const resultStyle = useMemo(() => getResultStyle(resultType), [resultType]);
 
+  const analysisRequestKey = `${match.matchId || 'unknown'}:${bucketMinutes}`;
+  const hasFreshAnalysis = Boolean(
+    analysisDetail &&
+      analysisDetail.matchId === match.matchId &&
+      Number(analysisDetail.bucketMinutes || 3) === bucketMinutes,
+  );
+
   useEffect(() => {
     if (!isExpanded) {
-      return;
-    }
-
-    if (analysisRequestedRef.current) {
       return;
     }
 
@@ -186,24 +344,48 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
       return;
     }
 
-    analysisRequestedRef.current = true;
+    if (hasFreshAnalysis) {
+      return;
+    }
+
+    let cancelled = false;
 
     axios
       .get(`/api/matches/${match.matchId}/analysis`, {
-        params: { puuid: match.puuid },
+        params: {
+          puuid: match.puuid,
+          bucketMinutes,
+        },
       })
       .then((response) => {
+        if (cancelled) return;
+
         if (response.data?.error) {
           throw new Error(response.data.error);
         }
 
+        setAnalysisError('');
+        setAnalysisErrorKey('');
         setAnalysisDetail(response.data);
       })
       .catch((error) => {
+        if (cancelled) return;
         setAnalysisError(error?.message || '상세 분석을 불러오지 못했습니다.');
-        analysisRequestedRef.current = false;
+        setAnalysisErrorKey(analysisRequestKey);
       });
-  }, [isExpanded, match.matchId, match.puuid]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isExpanded, match.matchId, match.puuid, bucketMinutes, hasFreshAnalysis, analysisRequestKey]);
+
+  const activeAnalysisError = analysisErrorKey === analysisRequestKey ? analysisError : '';
+
+  const isAnalysisLoading =
+    isExpanded &&
+    Boolean(match.matchId && match.puuid) &&
+    !hasFreshAnalysis &&
+    !activeAnalysisError;
 
   const overviewData = useMemo(
     () => buildOverviewFromAnalysis(analysisDetail, match.overview),
@@ -218,6 +400,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
     [analysisDetail],
   );
   const radarData = useMemo(() => buildRadarData(metricCards), [metricCards]);
+  const timelineMeta = useMemo(() => getTimelineMetricMeta(timelineMetric), [timelineMetric]);
 
   const isExcludedAnalysis = useMemo(
     () =>
@@ -226,6 +409,12 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
           (analysisDetail.resultType === 'REMAKE' || analysisDetail.resultType === 'INVALID'),
       ),
     [analysisDetail],
+  );
+
+  const hasOverviewPlayers = useMemo(
+    () =>
+      Boolean(overviewData?.blueTeam?.players?.length || overviewData?.redTeam?.players?.length),
+    [overviewData],
   );
 
   return (
@@ -268,16 +457,24 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
             <div className="text-xs text-gray-400 mt-0.5">
               {match.isCountedGame ? `${match.summary.kda} 평점` : '집계 제외 경기'}
             </div>
+            <div className="mt-1 text-[10px] text-gray-500">
+              {match.summary.position && match.summary.position !== 'UNKNOWN'
+                ? `${match.summary.position} · ${match.summary.champion}`
+                : match.summary.champion}
+            </div>
           </div>
 
           <div className="flex flex-col items-center justify-center w-16 sm:w-20 text-xs text-gray-400">
             <div>CS {match.summary.cs}</div>
+            <div className="mt-1 text-[10px] text-gray-500">
+              {match.summary.gold ? `${Math.round(match.summary.gold / 100) / 10}k 골드` : '-'}
+            </div>
           </div>
         </div>
 
         <div className="w-full sm:w-auto p-3 flex items-center justify-center bg-black/10">
           <div className="grid grid-cols-4 sm:grid-cols-3 gap-1">
-            {match.summary.items.map((item, idx) => (
+            {(match.summary.items || []).map((item, idx) => (
               <div
                 key={idx}
                 className={`w-6 h-6 rounded ${item === 0 ? 'bg-gray-800/50' : 'bg-gray-700'}`}
@@ -320,43 +517,83 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                   : 'border-transparent text-gray-400 hover:text-gray-200'
               }`}
             >
-              <Activity className="w-4 h-4" /> 상세 분석 및 코칭
+              <Activity className="w-4 h-4" /> 상세 분석
             </button>
           </div>
 
           {activeTab === 'overview' && (
             <div className="flex flex-col gap-3 p-3 md:p-4">
-              <div className={`rounded-lg ${resultStyle.blueBox}`}>
-                <div className={`px-3 py-2 flex justify-between items-center ${resultStyle.blueHeader}`}>
-                  <span className="text-xs font-bold">
-                    {getTeamHeaderLabel(overviewData.blueTeam, '블루팀')}
-                  </span>
-                  <span className="text-[10px] md:text-xs text-gray-400">
-                    총 킬: {overviewData.blueTeam.kills}
-                  </span>
+              {activeAnalysisError && (
+                <div className="bg-[#1c1c1f] rounded-xl border border-red-900/40 p-4 text-sm text-red-300 text-center">
+                  {activeAnalysisError}
                 </div>
-                <div className="flex flex-col">
-                  {overviewData.blueTeam.players.map((p) => (
-                    <PlayerRow key={p.id} player={p} isBlueTeam />
-                  ))}
-                </div>
-              </div>
+              )}
 
-              <div className={`rounded-lg ${resultStyle.redBox}`}>
-                <div className={`px-3 py-2 flex justify-between items-center ${resultStyle.redHeader}`}>
-                  <span className="text-xs font-bold">
-                    {getTeamHeaderLabel(overviewData.redTeam, '레드팀')}
-                  </span>
-                  <span className="text-[10px] md:text-xs text-gray-400">
-                    총 킬: {overviewData.redTeam.kills}
-                  </span>
+              {!activeAnalysisError && isAnalysisLoading && !hasOverviewPlayers && (
+                <div className="bg-[#1c1c1f] rounded-xl border border-gray-800/60 p-6 text-xs text-gray-400 text-center">
+                  실제 팀 전적 데이터를 불러오는 중입니다.
                 </div>
-                <div className="flex flex-col">
-                  {overviewData.redTeam.players.map((p) => (
-                    <PlayerRow key={p.id} player={p} isBlueTeam={false} />
-                  ))}
+              )}
+
+              {!activeAnalysisError && !isAnalysisLoading && !hasOverviewPlayers && (
+                <div className="bg-[#1c1c1f] rounded-xl border border-gray-800/60 p-6 text-xs text-gray-500 text-center">
+                  종합 전적 데이터가 아직 준비되지 않았습니다.
                 </div>
-              </div>
+              )}
+
+              {hasOverviewPlayers && (
+                <>
+                  <div className={`rounded-lg ${resultStyle.blueBox}`}>
+                    <div className={`px-3 py-2 ${resultStyle.blueHeader}`}>
+                      <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                        <span className="text-xs font-bold">
+                          {getTeamHeaderLabel(overviewData.blueTeam, '블루팀')}
+                        </span>
+                        <span className="text-[10px] md:text-xs text-gray-400">
+                          총 킬: {overviewData.blueTeam.kills}
+                          <span className="mx-2 text-gray-600">|</span>
+                          총 데스: {overviewData.blueTeam.deaths}
+                          <span className="mx-2 text-gray-600">|</span>
+                          총 골드: {overviewData.blueTeam.gold || '0.0k'}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-[10px] md:text-xs text-gray-500">
+                        오브젝트: {formatObjectiveSummary(overviewData.blueTeam.objectives)}
+                      </div>
+                    </div>
+                    <div className="flex flex-col">
+                      {overviewData.blueTeam.players.map((p) => (
+                        <PlayerRow key={p.id} player={p} isBlueTeam />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className={`rounded-lg ${resultStyle.redBox}`}>
+                    <div className={`px-3 py-2 ${resultStyle.redHeader}`}>
+                      <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                        <span className="text-xs font-bold">
+                          {getTeamHeaderLabel(overviewData.redTeam, '레드팀')}
+                        </span>
+                        <span className="text-[10px] md:text-xs text-gray-400">
+                          총 킬: {overviewData.redTeam.kills}
+                          <span className="mx-2 text-gray-600">|</span>
+                          총 데스: {overviewData.redTeam.deaths}
+                          <span className="mx-2 text-gray-600">|</span>
+                          총 골드: {overviewData.redTeam.gold || '0.0k'}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-[10px] md:text-xs text-gray-500">
+                        오브젝트: {formatObjectiveSummary(overviewData.redTeam.objectives)}
+                      </div>
+                    </div>
+                    <div className="flex flex-col">
+                      {overviewData.redTeam.players.map((p) => (
+                        <PlayerRow key={p.id} player={p} isBlueTeam={false} />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -369,16 +606,47 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                 </div>
                 <div className="text-[11px] text-gray-500">
                   {analysisDetail?.summary?.championName || match.summary.champion}
+                  {match.summary.position && match.summary.position !== 'UNKNOWN'
+                    ? ` · ${match.summary.position}`
+                    : ''}
                 </div>
               </div>
 
-              {analysisError && (
+              <div className="bg-[#18181b] px-4 py-3 border border-gray-800 rounded-xl flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-2 text-xs text-gray-300">
+                  <Activity className="w-4 h-4 text-blue-400" />
+                  <span className="font-semibold">버킷 단위</span>
+                </div>
+                <div className="flex gap-2">
+                  {BUCKET_OPTIONS.map((option) => (
+                    <button
+                      key={option}
+                      onClick={() => setBucketMinutes(option)}
+                      className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
+                        bucketMinutes === option
+                          ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
+                          : 'bg-[#121215] border-gray-700 text-gray-400 hover:text-gray-200'
+                      }`}
+                    >
+                      {option}분
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {activeAnalysisError && (
                 <div className="bg-[#1c1c1f] rounded-xl border border-red-900/40 p-6 text-sm text-red-300 text-center">
-                  {analysisError}
+                  {activeAnalysisError}
                 </div>
               )}
 
-              {!analysisError && analysisDetail && (
+              {!activeAnalysisError && isAnalysisLoading && !hasFreshAnalysis && (
+                <div className="bg-[#1c1c1f] rounded-xl border border-gray-800/60 p-6 text-xs text-gray-400 text-center">
+                  상세 분석 데이터를 불러오는 중입니다.
+                </div>
+              )}
+
+              {!activeAnalysisError && analysisDetail && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-[#1c1c1f] rounded-xl border border-gray-800/60 p-3 flex flex-col items-center col-span-1">
                     <h3 className="text-xs font-bold text-gray-300 mb-2">플레이 성향 지표</h3>
@@ -388,7 +656,13 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                           <RadarChart cx="50%" cy="50%" outerRadius="65%" data={radarData}>
                             <PolarGrid stroke="#3f3f46" />
                             <PolarAngleAxis dataKey="subject" tick={{ fill: '#a1a1aa', fontSize: 10 }} />
-                            <Radar name="지표" dataKey="score" stroke="#a855f7" fill="#a855f7" fillOpacity={0.4} />
+                            <Radar
+                              name="지표"
+                              dataKey="score"
+                              stroke="#a855f7"
+                              fill="#a855f7"
+                              fillOpacity={0.4}
+                            />
                           </RadarChart>
                         </ResponsiveContainer>
                       </div>
@@ -412,17 +686,29 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                               className="w-7 h-7 rounded-full border border-blue-500"
                               alt=""
                             />
-                            <span className="text-[10px] font-bold text-blue-400 hidden sm:block">
-                              {laneComparison.myChampionName}
-                            </span>
+                            <div className="hidden sm:flex flex-col">
+                              <span className="text-[10px] font-bold text-blue-400">
+                                {laneComparison.myChampionName}
+                              </span>
+                              <span className="text-[10px] text-gray-500">
+                                {normalizePosition(laneComparison.myPosition)}
+                              </span>
+                            </div>
                           </div>
+
                           <span className="text-[10px] text-gray-500 font-bold px-2 py-0.5 bg-gray-800 rounded-full">
                             VS
                           </span>
+
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-red-400 hidden sm:block">
-                              {laneComparison.opponentChampionName}
-                            </span>
+                            <div className="hidden sm:flex flex-col items-end">
+                              <span className="text-[10px] font-bold text-red-400">
+                                {laneComparison.opponentChampionName}
+                              </span>
+                              <span className="text-[10px] text-gray-500">
+                                {normalizePosition(laneComparison.opponentPosition)}
+                              </span>
+                            </div>
                             <img
                               src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/champion/${laneComparison.opponentChampionName}.png`}
                               className="w-7 h-7 rounded-full border border-red-500"
@@ -430,9 +716,38 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                             />
                           </div>
                         </div>
-                        <ComparisonBar label="CS" myValue={laneComparison.myCs} oppValue={laneComparison.opponentCs} />
-                        <ComparisonBar label="골드" myValue={laneComparison.myGoldEarned} oppValue={laneComparison.opponentGoldEarned} />
-                        <ComparisonBar label="딜량" myValue={laneComparison.myDamageToChampions} oppValue={laneComparison.opponentDamageToChampions} />
+
+                        <ComparisonBar
+                          label="CS"
+                          myValue={laneComparison.myCs || 0}
+                          oppValue={laneComparison.opponentCs || 0}
+                        />
+                        <ComparisonBar
+                          label="골드"
+                          myValue={laneComparison.myGoldEarned || 0}
+                          oppValue={laneComparison.opponentGoldEarned || 0}
+                        />
+                        <ComparisonBar
+                          label="딜량"
+                          myValue={laneComparison.myDamageToChampions || 0}
+                          oppValue={laneComparison.opponentDamageToChampions || 0}
+                        />
+
+                        <div className="mt-2 text-[11px] text-gray-500">
+                          차이값:
+                          <span className="ml-2 text-blue-300">
+                            CS {laneComparison.csDiff >= 0 ? '+' : ''}
+                            {laneComparison.csDiff}
+                          </span>
+                          <span className="ml-2 text-yellow-300">
+                            골드 {laneComparison.goldDiff >= 0 ? '+' : ''}
+                            {laneComparison.goldDiff.toLocaleString()}
+                          </span>
+                          <span className="ml-2 text-purple-300">
+                            딜량 {laneComparison.damageDiff >= 0 ? '+' : ''}
+                            {laneComparison.damageDiff.toLocaleString()}
+                          </span>
+                        </div>
                       </div>
                     ) : (
                       <div className="text-xs text-gray-500 text-center mt-8">상대를 찾을 수 없습니다.</div>
@@ -444,7 +759,11 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                     {metricCards.length > 0 ? (
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                         {metricCards.map((metric) => (
-                          <div key={metric.key} className="rounded-lg border border-gray-800 bg-[#18181b] p-3">
+                          <div
+                            key={metric.key}
+                            className="rounded-lg border border-gray-800 bg-[#18181b] p-3"
+                            title={metric.description || metric.label}
+                          >
                             <div className="text-[10px] text-gray-400">{metric.label}</div>
                             <div className="text-sm font-bold text-white mt-1">{formatMetricValue(metric)}</div>
                             <div className="text-[10px] text-purple-300 mt-1">점수 {metric.score}</div>
@@ -462,11 +781,36 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                   </div>
 
                   <div className="bg-[#1c1c1f] rounded-xl border border-gray-800/60 p-3 md:col-span-2">
-                    <h3 className="text-xs font-bold text-gray-300 mb-2">시간대별 성장 추이</h3>
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-3">
+                      <h3 className="text-xs font-bold text-gray-300">시간대별 성장 추이</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {TIMELINE_METRIC_OPTIONS.map((option) => (
+                          <button
+                            key={option.key}
+                            onClick={() => setTimelineMetric(option.key)}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] border transition-colors ${
+                              timelineMetric === option.key
+                                ? 'bg-purple-500/20 border-purple-500/40 text-purple-300'
+                                : 'bg-[#121215] border-gray-700 text-gray-400 hover:text-gray-200'
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mb-3 text-[11px] text-gray-500">
+                      파란색은 내 수치, 빨간색은 맞라인 상대 수치입니다. 시간대별 우열 변화를 2라인으로 비교합니다.
+                    </div>
+
                     {timelineData.length > 0 ? (
-                      <div className="w-full h-44">
+                      <div className="w-full h-52">
                         <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={timelineData} margin={{ top: 5, right: 10, bottom: 0, left: -25 }}>
+                          <LineChart
+                            data={timelineData}
+                            margin={{ top: 5, right: 10, bottom: 0, left: -15 }}
+                          >
                             <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
                             <XAxis
                               dataKey="time"
@@ -475,18 +819,14 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                               tickFormatter={(val) => `${val}분`}
                             />
                             <YAxis
-                              yAxisId="left"
-                              stroke="#eab308"
-                              tick={{ fill: '#eab308', fontSize: 10 }}
-                              tickFormatter={(val) => `${Math.round(val / 1000)}k`}
-                            />
-                            <YAxis
-                              yAxisId="right"
-                              orientation="right"
-                              stroke="#60a5fa"
-                              tick={{ fill: '#60a5fa', fontSize: 10 }}
+                              stroke="#a1a1aa"
+                              tick={{ fill: '#a1a1aa', fontSize: 10 }}
                             />
                             <RechartsTooltip
+                              formatter={(value) =>
+                                formatTooltipValue(value, timelineMeta.unit, timelineMeta.formatter)
+                              }
+                              labelFormatter={(label) => `${label}분`}
                               contentStyle={{
                                 backgroundColor: '#18181b',
                                 borderColor: '#3f3f46',
@@ -500,22 +840,22 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                               wrapperStyle={{ fontSize: '10px', color: '#a1a1aa' }}
                             />
                             <Line
-                              yAxisId="left"
-                              name="골드"
+                              name={`내 ${timelineMeta.label}`}
                               type="monotone"
-                              dataKey="gold"
-                              stroke="#eab308"
-                              strokeWidth={2}
-                              dot={{ r: 2 }}
-                            />
-                            <Line
-                              yAxisId="right"
-                              name="CS"
-                              type="monotone"
-                              dataKey="cs"
+                              dataKey={timelineMeta.myDataKey}
                               stroke="#60a5fa"
                               strokeWidth={2}
                               dot={{ r: 2 }}
+                              activeDot={{ r: 4 }}
+                            />
+                            <Line
+                              name={`상대 ${timelineMeta.label}`}
+                              type="monotone"
+                              dataKey={timelineMeta.opponentDataKey}
+                              stroke="#f87171"
+                              strokeWidth={2}
+                              dot={{ r: 2 }}
+                              activeDot={{ r: 4 }}
                             />
                           </LineChart>
                         </ResponsiveContainer>
@@ -545,11 +885,15 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                                 : 'bg-red-900/10 border-red-500/20 text-red-100'
                           }`}
                         >
-                          {item.type === 'good' && <ThumbsUp className="w-3 h-3 text-blue-400 mt-0.5 flex-shrink-0" />}
+                          {item.type === 'good' && (
+                            <ThumbsUp className="w-3 h-3 text-blue-400 mt-0.5 flex-shrink-0" />
+                          )}
                           {item.type === 'warning' && (
                             <AlertCircle className="w-3 h-3 text-yellow-400 mt-0.5 flex-shrink-0" />
                           )}
-                          {item.type === 'bad' && <AlertCircle className="w-3 h-3 text-red-400 mt-0.5 flex-shrink-0" />}
+                          {item.type === 'bad' && (
+                            <AlertCircle className="w-3 h-3 text-red-400 mt-0.5 flex-shrink-0" />
+                          )}
                           <div className="leading-tight">
                             {item.title && <div className="font-semibold mb-0.5">{item.title}</div>}
                             <div>{item.text}</div>
@@ -564,7 +908,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                 </div>
               )}
 
-              {!analysisError && !analysisDetail && (
+              {!activeAnalysisError && !isAnalysisLoading && !analysisDetail && (
                 <div className="text-xs text-gray-500 text-center py-4">
                   분석 데이터가 준비되면 자동으로 표시됩니다.
                 </div>
