@@ -1,23 +1,5 @@
 package com.example.mmrtest.service;
 
-import com.example.mmrtest.dto.MatchSummary;
-import com.example.mmrtest.dto.ScoreResult;
-import com.example.mmrtest.dto.SummonerDTO;
-import com.example.mmrtest.entity.SummonerHistory;
-import com.example.mmrtest.repository.SummonerHistoryRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriUtils;
-
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -31,6 +13,25 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriUtils;
+
+import com.example.mmrtest.dto.MatchSummary;
+import com.example.mmrtest.dto.ScoreResult;
+import com.example.mmrtest.dto.SummonerDTO;
+import com.example.mmrtest.entity.SummonerHistory;
+import com.example.mmrtest.repository.SummonerHistoryRepository;
 
 @Service
 public class SummonerService {
