@@ -15,7 +15,13 @@ public class CacheConfig {
 
     @Bean
     public CacheManager cacheManager() {
-        CaffeineCacheManager cacheManager = new CaffeineCacheManager("summonerInfo", "matchIds", "matchRaw");
+        CaffeineCacheManager cacheManager = new CaffeineCacheManager(
+                "summonerInfo",
+                "matchIds",
+                "matchRaw",
+                "matchDetail",
+                "matchTimelineRaw"
+        );
         cacheManager.setCaffeine(caffeineCacheBuilder());
         return cacheManager;
     }
