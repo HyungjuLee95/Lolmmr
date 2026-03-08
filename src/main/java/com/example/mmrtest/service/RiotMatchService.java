@@ -237,6 +237,7 @@ public class RiotMatchService {
         summary.setQueueId(getInt(info, "queueId", 0));
         summary.setGameEndTimeStamp(getLong(info, "gameEndTimestamp", 0L));
         summary.setPerformanceScore(0);
+        summary.setTeamPosition(resolveTeamPosition(me));
         summary.setInvalid(invalid);
         summary.setCountedGame(countedGame);
         summary.setRemake(remake);
@@ -300,6 +301,27 @@ public class RiotMatchService {
         if (styles.size() < 2) return 0;
 
         return getInt(styles.get(1), "style", 0);
+    }
+
+
+    private String resolveTeamPosition(Map<String, Object> participant) {
+        String teamPosition = getString(participant, "teamPosition", "");
+        if (!teamPosition.isBlank()) {
+            return teamPosition;
+        }
+
+        String individualPosition = getString(participant, "individualPosition", "");
+        if (!individualPosition.isBlank()) {
+            return individualPosition;
+        }
+
+        String lane = getString(participant, "lane", "");
+        if (!lane.isBlank()) {
+            return lane;
+        }
+
+        String role = getString(participant, "role", "");
+        return role.isBlank() ? "UNKNOWN" : role;
     }
 
     private String resolveDisplayResult(MatchResultType resultType) {
