@@ -47,3 +47,5 @@ dev:
       - "욕설멈춰i#kr1"
       - "Lune silencieuse#KR2"
       - "hideonbush#kr1"
+score:
+  calibration-log-enabled: true
