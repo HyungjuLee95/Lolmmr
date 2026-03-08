@@ -55,10 +55,8 @@ public class ScoreEngine {
 
     public ScoreResult calculateScore(List<MatchSummary> matches, int baseScore) {
         if (matches == null || matches.isEmpty()) {
-            return new ScoreResult(
+            return buildScoreResult(
                     baseScore,
-                    baseScore,
-                    gradeFromScore(baseScore),
                     baseScore,
                     0,
                     0.0,
@@ -161,10 +159,8 @@ public class ScoreEngine {
             );
         }
 
-        return new ScoreResult(
+        return buildScoreResult(
                 currentScore,
-                currentScore,
-                grade,
                 baseScore,
                 countedGames,
                 averageDelta,
@@ -174,6 +170,32 @@ public class ScoreEngine {
                 performanceHistory,
                 roleStats
         );
+    }
+
+    private ScoreResult buildScoreResult(
+            int currentScore,
+            int baseScore,
+            int countedGames,
+            double averageDelta,
+            double averagePerformance,
+            List<Integer> scoreHistory,
+            List<Integer> scoreDeltaHistory,
+            List<Integer> performanceHistory,
+            Map<String, ScoreResult.RoleStat> roleStats
+    ) {
+        ScoreResult result = new ScoreResult();
+        result.setCurrentScore(currentScore);
+        result.setTotalScore(currentScore);
+        result.setBaseScore(baseScore);
+        result.setCountedGames(countedGames);
+        result.setAverageDelta(averageDelta);
+        result.setAveragePerformance(averagePerformance);
+        result.setGrade(gradeFromScore(currentScore));
+        result.setScoreHistory(scoreHistory);
+        result.setScoreDeltaHistory(scoreDeltaHistory);
+        result.setPerformanceHistory(performanceHistory);
+        result.setRoleStats(roleStats);
+        return result;
     }
 
     private int calculatePerformanceScore(MatchSummary match, String role) {
