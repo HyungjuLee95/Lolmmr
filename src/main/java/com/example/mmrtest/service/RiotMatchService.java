@@ -70,6 +70,52 @@ public class RiotMatchService {
         return results;
     }
 
+    public List<String> getMatchIds(String puuid, int queueId) {
+        if (puuid == null || puuid.isBlank()) {
+            return Collections.emptyList();
+        }
+
+        if (queueId != SOLO_RANK_QUEUE_ID && queueId != FLEX_RANK_QUEUE_ID) {
+            return Collections.emptyList();
+        }
+
+        String url = ASIA_BASE_URL
+                + "/lol/match/v5/matches/by-puuid/"
+                + puuid
+                + "/ids?type=ranked&queue="
+                + queueId
+                + "&start=0&count=10";
+
+        List<String> ids = riotGet(url, new ParameterizedTypeReference<List<String>>() {});
+        return ids == null ? Collections.emptyList() : ids;
+    }
+
+    public List<MatchSummary> getMatchSummaries(String puuid, List<String> matchIds, int queueId) {
+        if (puuid == null || puuid.isBlank() || matchIds == null || matchIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<MatchSummary> results = new ArrayList<>();
+        for (String matchId : matchIds) {
+            MatchSummary summary = fetchMatchDetail(puuid, matchId);
+            if (summary == null) {
+                continue;
+            }
+
+            if (queueId > 0 && summary.getQueueId() != queueId) {
+                continue;
+            }
+
+            if (summary.getQueueId() != SOLO_RANK_QUEUE_ID && summary.getQueueId() != FLEX_RANK_QUEUE_ID) {
+                continue;
+            }
+
+            results.add(summary);
+        }
+
+        return results;
+    }
+
     @Cacheable(value = "matchIds", key = "#puuid + ':' + #count", cacheManager = "cacheManager")
     public List<String> fetchMatchIds(String puuid, int count) {
         String url = ASIA_BASE_URL
