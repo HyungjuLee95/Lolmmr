@@ -23,19 +23,19 @@ const ComparisonBar = ({ label, myValue, oppValue, isLowerBetter = false }) => {
   return (
     <div className="flex flex-col gap-1.5 mb-3">
       <div className="flex items-center justify-between px-1">
-        <span className={`text-[10px] md:text-xs ${isMyWin ? 'text-blue-400 font-bold' : 'text-gray-400'}`}>
+        <span className={`text-[10px] md:text-xs ${isMyWin ? 'text-[#F1DAC4] font-bold' : 'text-[#A69CAC]'}`}>
           {my.toLocaleString()}
         </span>
 
         <div className="flex flex-col items-center min-w-[90px]">
-          <span className="text-[10px] md:text-xs text-gray-500">{label}</span>
+          <span className="text-[10px] md:text-xs text-[#8B86A3]">{label}</span>
           <span
             className={`text-[9px] md:text-[10px] ${
               isTie
-                ? 'text-gray-500'
+                ? 'text-[#8B86A3]'
                 : isMyWin
-                  ? 'text-blue-300'
-                  : 'text-red-300'
+                  ? 'text-[#E8D8C8]'
+                  : 'text-[#C8BAD0]'
             }`}
           >
             {statusText}
@@ -47,18 +47,18 @@ const ComparisonBar = ({ label, myValue, oppValue, isLowerBetter = false }) => {
           </span>
         </div>
 
-        <span className={`text-[10px] md:text-xs ${isOppWin ? 'text-red-400 font-bold' : 'text-gray-400'}`}>
+        <span className={`text-[10px] md:text-xs ${isOppWin ? 'text-[#A69CAC] font-bold' : 'text-[#A69CAC]'}`}>
           {opp.toLocaleString()}
         </span>
       </div>
 
-      <div className="flex w-full h-1.5 md:h-2 rounded-full overflow-hidden bg-gray-800">
+      <div className="flex w-full h-1.5 md:h-2 rounded-full overflow-hidden bg-[#474973]">
         <div
-          className="bg-blue-500 h-full transition-all duration-500"
+          className="bg-[#F1DAC4] h-full transition-all duration-500"
           style={{ width: `${myPct}%` }}
         />
         <div
-          className="bg-red-500 h-full transition-all duration-500"
+          className="bg-[#A69CAC] h-full transition-all duration-500"
           style={{ width: `${oppPct}%` }}
         />
       </div>

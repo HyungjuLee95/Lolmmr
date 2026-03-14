@@ -34,6 +34,7 @@ dependencies {
     // 5. 데이터베이스 관련 (JPA & H2)
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa' // JPA 추가
     runtimeOnly 'com.h2database:h2'                                      // H2 추가
+    runtimeOnly 'org.postgresql:postgresql'                              // PostgreSQL 추가
     // -------------------------
 
     // 3. 편의 기능 및 개발 도구
@@ -41,6 +42,7 @@ dependencies {
 
     // 캐시 의존성 (Spring Cache + Caffeine)
     implementation 'org.springframework.boot:spring-boot-starter-cache'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'com.github.ben-manes.caffeine:caffeine'
 
     // 4. 테스트 도구
