@@ -1,29 +1,8 @@
 spring:
   application:
     name: mmrTest
-
-  datasource:
-    url: jdbc:h2:mem:testdb;MODE=PostgreSQL
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-
-  jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
-      settings:
-        trace: false
-        web-allow-others: false
+  profiles:
+    default: local
 
   messages:
     encoding: UTF-8
@@ -37,16 +16,12 @@ server:
 
 riot:
   api:
-    key: RGAPI-914ac6fb-1ad0-4ec0-a1c8-3432ba69a1ed
+    key: ${RIOT_API_KEY:}
 
 dev:
   allowlist:
-    enabled: false
-    riotIds:
-      - "guny#kr1"
-      - "욕설멈춰i#kr1"
-      - "lune silencieuse#KR2"
-      - "hideonbush#kr1"
+    enabled: ${DEV_ALLOWLIST_ENABLED:false}
+    riotIds: ${DEV_ALLOWLIST_RIOT_IDS:}
 
 score:
-  calibration-log-enabled: true
+  calibration-log-enabled: ${SCORE_CALIBRATION_LOG_ENABLED:true}
