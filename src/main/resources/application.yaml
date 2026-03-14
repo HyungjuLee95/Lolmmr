@@ -37,14 +37,14 @@ server:
 
 riot:
   api:
-    key: RGAPI-6b518306-dfab-4a50-8784-8aec3a7c8272
+    key: RGAPI-914ac6fb-1ad0-4ec0-a1c8-3432ba69a1ed
 
 dev:
   allowlist:
     enabled: false
     riotIds:
       - "guny#kr1"
-      - "욕설만쳐1#kr1"
+      - "욕설멈춰i#kr1"
       - "lune silencieuse#KR2"
       - "hideonbush#kr1"
 
