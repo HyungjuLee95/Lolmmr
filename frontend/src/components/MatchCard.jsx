@@ -29,36 +29,36 @@ import PlayerRow from './PlayerRow';
 
 const RESULT_STYLE = {
   WIN: {
-    cardBorder: 'border-l-blue-500 hover:bg-[#1e293b]/60',
-    resultText: 'text-blue-400',
-    blueBox: 'bg-[#1e293b]/20 border border-blue-900/30',
-    blueHeader: 'bg-[#1e293b]/50 border-b border-blue-900/30 text-blue-400',
-    redBox: 'bg-[#3f1d24]/20 border border-red-900/30',
-    redHeader: 'bg-[#3f1d24]/50 border-b border-red-900/30 text-red-400',
+    cardBorder: 'border-l-[#F1DAC4] hover:bg-[#474973]/35',
+    resultText: 'text-[#F1DAC4]',
+    blueBox: 'bg-[#474973]/25 border border-[#A69CAC]/35',
+    blueHeader: 'bg-[#474973]/55 border-b border-[#A69CAC]/35 text-[#F1DAC4]',
+    redBox: 'bg-[#161B33]/30 border border-[#A69CAC]/30',
+    redHeader: 'bg-[#161B33]/55 border-b border-[#A69CAC]/30 text-[#A69CAC]',
   },
   LOSS: {
-    cardBorder: 'border-l-red-500 hover:bg-[#3f1d24]/60',
-    resultText: 'text-red-400',
-    blueBox: 'bg-[#1e293b]/20 border border-blue-900/30',
-    blueHeader: 'bg-[#1e293b]/50 border-b border-blue-900/30 text-blue-400',
-    redBox: 'bg-[#3f1d24]/20 border border-red-900/30',
-    redHeader: 'bg-[#3f1d24]/50 border-b border-red-900/30 text-red-400',
+    cardBorder: 'border-l-[#A69CAC] hover:bg-[#161B33]/55',
+    resultText: 'text-[#A69CAC]',
+    blueBox: 'bg-[#474973]/25 border border-[#A69CAC]/35',
+    blueHeader: 'bg-[#474973]/55 border-b border-[#A69CAC]/35 text-[#F1DAC4]',
+    redBox: 'bg-[#161B33]/30 border border-[#A69CAC]/30',
+    redHeader: 'bg-[#161B33]/55 border-b border-[#A69CAC]/30 text-[#A69CAC]',
   },
   REMAKE: {
-    cardBorder: 'border-l-yellow-500 hover:bg-[#3b3220]/60',
-    resultText: 'text-yellow-400',
-    blueBox: 'bg-[#27272a]/30 border border-yellow-800/20',
-    blueHeader: 'bg-[#27272a]/50 border-b border-yellow-800/20 text-yellow-300',
-    redBox: 'bg-[#27272a]/30 border border-yellow-800/20',
-    redHeader: 'bg-[#27272a]/50 border-b border-yellow-800/20 text-yellow-300',
+    cardBorder: 'border-l-[#F1DAC4] hover:bg-[#474973]/35',
+    resultText: 'text-[#F1DAC4]',
+    blueBox: 'bg-[#474973]/30 border border-[#A69CAC]/25',
+    blueHeader: 'bg-[#474973]/55 border-b border-[#A69CAC]/30 text-[#F1DAC4]',
+    redBox: 'bg-[#474973]/30 border border-[#A69CAC]/25',
+    redHeader: 'bg-[#474973]/55 border-b border-[#A69CAC]/30 text-[#F1DAC4]',
   },
   INVALID: {
-    cardBorder: 'border-l-gray-500 hover:bg-[#27272a]/60',
-    resultText: 'text-gray-400',
-    blueBox: 'bg-[#27272a]/30 border border-gray-700/40',
-    blueHeader: 'bg-[#27272a]/50 border-b border-gray-700/40 text-gray-300',
-    redBox: 'bg-[#27272a]/30 border border-gray-700/40',
-    redHeader: 'bg-[#27272a]/50 border-b border-gray-700/40 text-gray-300',
+    cardBorder: 'border-l-[#474973] hover:bg-[#474973]/60',
+    resultText: 'text-[#A69CAC]',
+    blueBox: 'bg-[#474973]/30 border border-[#A69CAC]/30',
+    blueHeader: 'bg-[#474973]/55 border-b border-[#A69CAC]/30 text-[#F1DAC4]',
+    redBox: 'bg-[#474973]/30 border border-[#A69CAC]/30',
+    redHeader: 'bg-[#474973]/55 border-b border-[#A69CAC]/30 text-[#F1DAC4]',
   },
 };
 
@@ -418,16 +418,16 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
   );
 
   return (
-    <div className="flex flex-col rounded-xl border border-gray-800 bg-[#1c1c1f] overflow-hidden">
+    <div className="flex flex-col rounded-xl border border-[#474973] bg-[#161B33] overflow-hidden">
       <div
         onClick={onToggle}
         className={`flex flex-col sm:flex-row cursor-pointer border-l-4 ${resultStyle.cardBorder} transition-colors`}
       >
-        <div className="w-full sm:w-28 p-3 flex flex-col justify-center text-xs text-gray-400 border-b sm:border-b-0 sm:border-r border-gray-800/50">
+        <div className="w-full sm:w-28 p-3 flex flex-col justify-center text-xs text-[#A69CAC] border-b sm:border-b-0 sm:border-r border-[#474973]/70">
           <div className={`font-bold mb-1 ${resultStyle.resultText}`}>{resultLabel}</div>
           <div className="mb-1">{match.gameType}</div>
           <div>{match.timeAgo}</div>
-          <div className="border-t border-gray-700 my-1" />
+          <div className="border-t border-[#474973] my-1" />
           <div>{match.gameDuration}</div>
         </div>
 
@@ -436,37 +436,37 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
             <img
               src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/champion/${match.summary.champion}.png`}
               alt={match.summary.champion}
-              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-gray-700"
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-[#474973]"
             />
             <div className="flex flex-col gap-1 hidden sm:flex">
-              <div className="w-4 h-4 sm:w-5 sm:h-5 bg-gray-700 rounded text-[8px] flex items-center justify-center border border-gray-600">
+              <div className="w-4 h-4 sm:w-5 sm:h-5 bg-[#474973] rounded text-[8px] flex items-center justify-center border border-[#474973]">
                 D
               </div>
-              <div className="w-4 h-4 sm:w-5 sm:h-5 bg-gray-700 rounded text-[8px] flex items-center justify-center border border-gray-600">
+              <div className="w-4 h-4 sm:w-5 sm:h-5 bg-[#474973] rounded text-[8px] flex items-center justify-center border border-[#474973]">
                 F
               </div>
             </div>
           </div>
 
           <div className="flex flex-col items-center flex-1">
-            <div className="font-bold text-gray-200 text-base sm:text-lg tracking-wide">
-              {match.summary.kills} <span className="text-gray-500 font-normal">/</span>{' '}
-              <span className="text-red-400">{match.summary.deaths}</span>{' '}
-              <span className="text-gray-500 font-normal">/</span> {match.summary.assists}
+            <div className="font-bold text-[#F1DAC4] text-base sm:text-lg tracking-wide">
+              {match.summary.kills} <span className="text-[#8B86A3] font-normal">/</span>{' '}
+              <span className="text-[#A69CAC]">{match.summary.deaths}</span>{' '}
+              <span className="text-[#8B86A3] font-normal">/</span> {match.summary.assists}
             </div>
-            <div className="text-xs text-gray-400 mt-0.5">
+            <div className="text-xs text-[#A69CAC] mt-0.5">
               {match.isCountedGame ? `${match.summary.kda} 평점` : '집계 제외 경기'}
             </div>
-            <div className="mt-1 text-[10px] text-gray-500">
+            <div className="mt-1 text-[10px] text-[#8B86A3]">
               {match.summary.position && match.summary.position !== 'UNKNOWN'
                 ? `${match.summary.position} · ${match.summary.champion}`
                 : match.summary.champion}
             </div>
           </div>
 
-          <div className="flex flex-col items-center justify-center w-16 sm:w-20 text-xs text-gray-400">
+          <div className="flex flex-col items-center justify-center w-16 sm:w-20 text-xs text-[#A69CAC]">
             <div>CS {match.summary.cs}</div>
-            <div className="mt-1 text-[10px] text-gray-500">
+            <div className="mt-1 text-[10px] text-[#8B86A3]">
               {match.summary.gold ? `${Math.round(match.summary.gold / 100) / 10}k 골드` : '-'}
             </div>
           </div>
@@ -477,7 +477,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
             {(match.summary.items || []).map((item, idx) => (
               <div
                 key={idx}
-                className={`w-6 h-6 rounded ${item === 0 ? 'bg-gray-800/50' : 'bg-gray-700'}`}
+                className={`w-6 h-6 rounded ${item === 0 ? 'bg-[#474973]/50' : 'bg-[#474973]'}`}
               >
                 {item !== 0 && (
                   <img
@@ -491,20 +491,20 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
           </div>
         </div>
 
-        <div className="hidden sm:flex w-10 items-center justify-center bg-black/20 text-gray-500 hover:text-gray-300 transition-colors">
+        <div className="hidden sm:flex w-10 items-center justify-center bg-[#0D0C1D]/35 text-[#8B86A3] hover:text-[#F1DAC4] transition-colors">
           {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
         </div>
       </div>
 
       {isExpanded && (
-        <div className="border-t border-gray-800 bg-[#121215] flex flex-col animate-in slide-in-from-top-2 duration-200">
-          <div className="flex border-b border-gray-800 bg-[#18181b] overflow-x-auto">
+        <div className="border-t border-[#474973] bg-[#0D0C1D] flex flex-col animate-in slide-in-from-top-2 duration-200">
+          <div className="flex border-b border-[#474973] bg-[#161B33] overflow-x-auto">
             <button
               onClick={() => setActiveTab('overview')}
               className={`px-4 py-3 text-xs md:text-sm font-semibold transition-colors border-b-2 flex items-center gap-1 md:gap-2 whitespace-nowrap ${
                 activeTab === 'overview'
-                  ? 'border-blue-500 text-blue-400'
-                  : 'border-transparent text-gray-400 hover:text-gray-200'
+                  ? 'border-[#F1DAC4] text-[#F1DAC4]'
+                  : 'border-transparent text-[#A69CAC] hover:text-[#F1DAC4]'
               }`}
             >
               <Swords className="w-4 h-4" /> 종합 전적
@@ -513,8 +513,8 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
               onClick={() => setActiveTab('analysis')}
               className={`px-4 py-3 text-xs md:text-sm font-semibold transition-colors border-b-2 flex items-center gap-1 md:gap-2 whitespace-nowrap ${
                 activeTab === 'analysis'
-                  ? 'border-purple-500 text-purple-400'
-                  : 'border-transparent text-gray-400 hover:text-gray-200'
+                  ? 'border-[#A69CAC] text-[#A69CAC]'
+                  : 'border-transparent text-[#A69CAC] hover:text-[#F1DAC4]'
               }`}
             >
               <Activity className="w-4 h-4" /> 상세 분석
@@ -524,19 +524,19 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
           {activeTab === 'overview' && (
             <div className="flex flex-col gap-3 p-3 md:p-4">
               {activeAnalysisError && (
-                <div className="bg-[#1c1c1f] rounded-xl border border-red-900/40 p-4 text-sm text-red-300 text-center">
+                <div className="bg-[#161B33] rounded-xl border border-[#A69CAC]/40 p-4 text-sm text-[#C8BAD0] text-center">
                   {activeAnalysisError}
                 </div>
               )}
 
               {!activeAnalysisError && isAnalysisLoading && !hasOverviewPlayers && (
-                <div className="bg-[#1c1c1f] rounded-xl border border-gray-800/60 p-6 text-xs text-gray-400 text-center">
+                <div className="bg-[#161B33] rounded-xl border border-[#474973]/70 p-6 text-xs text-[#A69CAC] text-center">
                   실제 팀 전적 데이터를 불러오는 중입니다.
                 </div>
               )}
 
               {!activeAnalysisError && !isAnalysisLoading && !hasOverviewPlayers && (
-                <div className="bg-[#1c1c1f] rounded-xl border border-gray-800/60 p-6 text-xs text-gray-500 text-center">
+                <div className="bg-[#161B33] rounded-xl border border-[#474973]/70 p-6 text-xs text-[#8B86A3] text-center">
                   종합 전적 데이터가 아직 준비되지 않았습니다.
                 </div>
               )}
@@ -549,15 +549,15 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                         <span className="text-xs font-bold">
                           {getTeamHeaderLabel(overviewData.blueTeam, '블루팀')}
                         </span>
-                        <span className="text-[10px] md:text-xs text-gray-400">
+                        <span className="text-[10px] md:text-xs text-[#A69CAC]">
                           총 킬: {overviewData.blueTeam.kills}
-                          <span className="mx-2 text-gray-600">|</span>
+                          <span className="mx-2 text-[#8B86A3]">|</span>
                           총 데스: {overviewData.blueTeam.deaths}
-                          <span className="mx-2 text-gray-600">|</span>
+                          <span className="mx-2 text-[#8B86A3]">|</span>
                           총 골드: {overviewData.blueTeam.gold || '0.0k'}
                         </span>
                       </div>
-                      <div className="mt-1 text-[10px] md:text-xs text-gray-500">
+                      <div className="mt-1 text-[10px] md:text-xs text-[#8B86A3]">
                         오브젝트: {formatObjectiveSummary(overviewData.blueTeam.objectives)}
                       </div>
                     </div>
@@ -574,15 +574,15 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                         <span className="text-xs font-bold">
                           {getTeamHeaderLabel(overviewData.redTeam, '레드팀')}
                         </span>
-                        <span className="text-[10px] md:text-xs text-gray-400">
+                        <span className="text-[10px] md:text-xs text-[#A69CAC]">
                           총 킬: {overviewData.redTeam.kills}
-                          <span className="mx-2 text-gray-600">|</span>
+                          <span className="mx-2 text-[#8B86A3]">|</span>
                           총 데스: {overviewData.redTeam.deaths}
-                          <span className="mx-2 text-gray-600">|</span>
+                          <span className="mx-2 text-[#8B86A3]">|</span>
                           총 골드: {overviewData.redTeam.gold || '0.0k'}
                         </span>
                       </div>
-                      <div className="mt-1 text-[10px] md:text-xs text-gray-500">
+                      <div className="mt-1 text-[10px] md:text-xs text-[#8B86A3]">
                         오브젝트: {formatObjectiveSummary(overviewData.redTeam.objectives)}
                       </div>
                     </div>
@@ -599,12 +599,12 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
 
           {activeTab === 'analysis' && (
             <div className="flex flex-col p-3 md:p-4 gap-4">
-              <div className="bg-[#18181b] px-4 py-3 flex items-center justify-between border border-gray-800 rounded-xl">
-                <div className="flex items-center gap-2 text-xs text-gray-300">
-                  <Users className="w-4 h-4 text-purple-400" />
+              <div className="bg-[#161B33] px-4 py-3 flex items-center justify-between border border-[#474973] rounded-xl">
+                <div className="flex items-center gap-2 text-xs text-[#F1DAC4]">
+                  <Users className="w-4 h-4 text-[#A69CAC]" />
                   <span className="font-semibold">분석 기준: 내 플레이</span>
                 </div>
-                <div className="text-[11px] text-gray-500">
+                <div className="text-[11px] text-[#8B86A3]">
                   {analysisDetail?.summary?.championName || match.summary.champion}
                   {match.summary.position && match.summary.position !== 'UNKNOWN'
                     ? ` · ${match.summary.position}`
@@ -612,9 +612,9 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                 </div>
               </div>
 
-              <div className="bg-[#18181b] px-4 py-3 border border-gray-800 rounded-xl flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div className="flex items-center gap-2 text-xs text-gray-300">
-                  <Activity className="w-4 h-4 text-blue-400" />
+              <div className="bg-[#161B33] px-4 py-3 border border-[#474973] rounded-xl flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-2 text-xs text-[#F1DAC4]">
+                  <Activity className="w-4 h-4 text-[#F1DAC4]" />
                   <span className="font-semibold">버킷 단위</span>
                 </div>
                 <div className="flex gap-2">
@@ -624,8 +624,8 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                       onClick={() => setBucketMinutes(option)}
                       className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
                         bucketMinutes === option
-                          ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
-                          : 'bg-[#121215] border-gray-700 text-gray-400 hover:text-gray-200'
+                          ? 'bg-[#F1DAC4]/15 border-[#F1DAC4]/40 text-[#F1DAC4]'
+                          : 'bg-[#0D0C1D] border-[#474973] text-[#A69CAC] hover:text-[#F1DAC4]'
                       }`}
                     >
                       {option}분
@@ -635,47 +635,47 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
               </div>
 
               {activeAnalysisError && (
-                <div className="bg-[#1c1c1f] rounded-xl border border-red-900/40 p-6 text-sm text-red-300 text-center">
+                <div className="bg-[#161B33] rounded-xl border border-[#A69CAC]/40 p-6 text-sm text-[#C8BAD0] text-center">
                   {activeAnalysisError}
                 </div>
               )}
 
               {!activeAnalysisError && isAnalysisLoading && !hasFreshAnalysis && (
-                <div className="bg-[#1c1c1f] rounded-xl border border-gray-800/60 p-6 text-xs text-gray-400 text-center">
+                <div className="bg-[#161B33] rounded-xl border border-[#474973]/70 p-6 text-xs text-[#A69CAC] text-center">
                   상세 분석 데이터를 불러오는 중입니다.
                 </div>
               )}
 
               {!activeAnalysisError && analysisDetail && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-[#1c1c1f] rounded-xl border border-gray-800/60 p-3 flex flex-col items-center col-span-1">
-                    <h3 className="text-xs font-bold text-gray-300 mb-2">플레이 성향 지표</h3>
+                  <div className="bg-[#161B33] rounded-xl border border-[#474973]/70 p-3 flex flex-col items-center col-span-1">
+                    <h3 className="text-xs font-bold text-[#F1DAC4] mb-2">플레이 성향 지표</h3>
                     {metricCards.length > 0 ? (
                       <div className="w-full h-40">
                         <ResponsiveContainer width="100%" height="100%">
                           <RadarChart cx="50%" cy="50%" outerRadius="65%" data={radarData}>
-                            <PolarGrid stroke="#3f3f46" />
-                            <PolarAngleAxis dataKey="subject" tick={{ fill: '#a1a1aa', fontSize: 10 }} />
+                            <PolarGrid stroke="#474973" />
+                            <PolarAngleAxis dataKey="subject" tick={{ fill: '#F1DAC4', fontSize: 10 }} />
                             <Radar
                               name="지표"
                               dataKey="score"
-                              stroke="#a855f7"
-                              fill="#a855f7"
+                              stroke="#F1DAC4"
+                              fill="#A69CAC"
                               fillOpacity={0.4}
                             />
                           </RadarChart>
                         </ResponsiveContainer>
                       </div>
                     ) : (
-                      <div className="w-full h-40 flex items-center justify-center text-xs text-gray-500">
+                      <div className="w-full h-40 flex items-center justify-center text-xs text-[#8B86A3]">
                         집계 제외 경기라 지표를 표시하지 않습니다.
                       </div>
                     )}
                   </div>
 
-                  <div className="bg-[#1c1c1f] rounded-xl border border-gray-800/60 p-3 flex flex-col col-span-1">
-                    <h3 className="text-xs font-bold text-gray-300 mb-3 flex items-center gap-1">
-                      <Users className="w-3 h-3 text-orange-400" /> 맞라인 상대 비교
+                  <div className="bg-[#161B33] rounded-xl border border-[#474973]/70 p-3 flex flex-col col-span-1">
+                    <h3 className="text-xs font-bold text-[#F1DAC4] mb-3 flex items-center gap-1">
+                      <Users className="w-3 h-3 text-[#F1DAC4]" /> 맞라인 상대 비교
                     </h3>
                     {laneComparison ? (
                       <div className="flex flex-col justify-center px-1">
@@ -683,35 +683,35 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                           <div className="flex items-center gap-2">
                             <img
                               src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/champion/${laneComparison.myChampionName}.png`}
-                              className="w-7 h-7 rounded-full border border-blue-500"
+                              className="w-7 h-7 rounded-full border border-[#F1DAC4]"
                               alt=""
                             />
                             <div className="hidden sm:flex flex-col">
-                              <span className="text-[10px] font-bold text-blue-400">
+                              <span className="text-[10px] font-bold text-[#F1DAC4]">
                                 {laneComparison.myChampionName}
                               </span>
-                              <span className="text-[10px] text-gray-500">
+                              <span className="text-[10px] text-[#8B86A3]">
                                 {normalizePosition(laneComparison.myPosition)}
                               </span>
                             </div>
                           </div>
 
-                          <span className="text-[10px] text-gray-500 font-bold px-2 py-0.5 bg-gray-800 rounded-full">
+                          <span className="text-[10px] text-[#8B86A3] font-bold px-2 py-0.5 bg-[#474973] rounded-full">
                             VS
                           </span>
 
                           <div className="flex items-center gap-2">
                             <div className="hidden sm:flex flex-col items-end">
-                              <span className="text-[10px] font-bold text-red-400">
+                              <span className="text-[10px] font-bold text-[#A69CAC]">
                                 {laneComparison.opponentChampionName}
                               </span>
-                              <span className="text-[10px] text-gray-500">
+                              <span className="text-[10px] text-[#8B86A3]">
                                 {normalizePosition(laneComparison.opponentPosition)}
                               </span>
                             </div>
                             <img
                               src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/champion/${laneComparison.opponentChampionName}.png`}
-                              className="w-7 h-7 rounded-full border border-red-500"
+                              className="w-7 h-7 rounded-full border border-[#A69CAC]"
                               alt=""
                             />
                           </div>
@@ -733,56 +733,56 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                           oppValue={laneComparison.opponentDamageToChampions || 0}
                         />
 
-                        <div className="mt-2 text-[11px] text-gray-500">
+                        <div className="mt-2 text-[11px] text-[#8B86A3]">
                           차이값:
-                          <span className="ml-2 text-blue-300">
+                          <span className="ml-2 text-[#E8D8C8]">
                             CS {laneComparison.csDiff >= 0 ? '+' : ''}
                             {laneComparison.csDiff}
                           </span>
-                          <span className="ml-2 text-yellow-300">
+                          <span className="ml-2 text-[#F1DAC4]">
                             골드 {laneComparison.goldDiff >= 0 ? '+' : ''}
                             {laneComparison.goldDiff.toLocaleString()}
                           </span>
-                          <span className="ml-2 text-purple-300">
+                          <span className="ml-2 text-[#D6C2DF]">
                             딜량 {laneComparison.damageDiff >= 0 ? '+' : ''}
                             {laneComparison.damageDiff.toLocaleString()}
                           </span>
                         </div>
                       </div>
                     ) : (
-                      <div className="text-xs text-gray-500 text-center mt-8">상대를 찾을 수 없습니다.</div>
+                      <div className="text-xs text-[#8B86A3] text-center mt-8">상대를 찾을 수 없습니다.</div>
                     )}
                   </div>
 
-                  <div className="bg-[#1c1c1f] rounded-xl border border-gray-800/60 p-3 md:col-span-2">
-                    <h3 className="text-xs font-bold text-gray-300 mb-3">핵심 지표 카드</h3>
+                  <div className="bg-[#161B33] rounded-xl border border-[#474973]/70 p-3 md:col-span-2">
+                    <h3 className="text-xs font-bold text-[#F1DAC4] mb-3">핵심 지표 카드</h3>
                     {metricCards.length > 0 ? (
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                         {metricCards.map((metric) => (
                           <div
                             key={metric.key}
-                            className="rounded-lg border border-gray-800 bg-[#18181b] p-3"
+                            className="rounded-lg border border-[#474973] bg-[#161B33] p-3"
                             title={metric.description || metric.label}
                           >
-                            <div className="text-[10px] text-gray-400">{metric.label}</div>
+                            <div className="text-[10px] text-[#A69CAC]">{metric.label}</div>
                             <div className="text-sm font-bold text-white mt-1">{formatMetricValue(metric)}</div>
-                            <div className="text-[10px] text-purple-300 mt-1">점수 {metric.score}</div>
-                            <div className="text-[10px] text-gray-500 mt-1 leading-tight">
+                            <div className="text-[10px] text-[#D6C2DF] mt-1">점수 {metric.score}</div>
+                            <div className="text-[10px] text-[#8B86A3] mt-1 leading-tight">
                               {metric.description}
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="text-xs text-gray-500 text-center py-4">
+                      <div className="text-xs text-[#8B86A3] text-center py-4">
                         집계 제외 경기라 성과 카드를 표시하지 않습니다.
                       </div>
                     )}
                   </div>
 
-                  <div className="bg-[#1c1c1f] rounded-xl border border-gray-800/60 p-3 md:col-span-2">
+                  <div className="bg-[#161B33] rounded-xl border border-[#474973]/70 p-3 md:col-span-2">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-3">
-                      <h3 className="text-xs font-bold text-gray-300">시간대별 성장 추이</h3>
+                      <h3 className="text-xs font-bold text-[#F1DAC4]">시간대별 성장 추이</h3>
                       <div className="flex flex-wrap gap-2">
                         {TIMELINE_METRIC_OPTIONS.map((option) => (
                           <button
@@ -790,8 +790,8 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                             onClick={() => setTimelineMetric(option.key)}
                             className={`px-2.5 py-1 rounded-lg text-[11px] border transition-colors ${
                               timelineMetric === option.key
-                                ? 'bg-purple-500/20 border-purple-500/40 text-purple-300'
-                                : 'bg-[#121215] border-gray-700 text-gray-400 hover:text-gray-200'
+                                ? 'bg-[#A69CAC]/20 border-[#A69CAC]/45 text-[#F1DAC4]'
+                                : 'bg-[#0D0C1D] border-[#474973] text-[#A69CAC] hover:text-[#F1DAC4]'
                             }`}
                           >
                             {option.label}
@@ -800,7 +800,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                       </div>
                     </div>
 
-                    <div className="mb-3 text-[11px] text-gray-500">
+                    <div className="mb-3 text-[11px] text-[#8B86A3]">
                       파란색은 내 수치, 빨간색은 맞라인 상대 수치입니다. 시간대별 우열 변화를 2라인으로 비교합니다.
                     </div>
 
@@ -811,16 +811,16 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                             data={timelineData}
                             margin={{ top: 5, right: 10, bottom: 0, left: -15 }}
                           >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="#474973" vertical={false} />
                             <XAxis
                               dataKey="time"
-                              stroke="#71717a"
-                              tick={{ fill: '#71717a', fontSize: 10 }}
+                              stroke="#A69CAC"
+                              tick={{ fill: '#A69CAC', fontSize: 10 }}
                               tickFormatter={(val) => `${val}분`}
                             />
                             <YAxis
-                              stroke="#a1a1aa"
-                              tick={{ fill: '#a1a1aa', fontSize: 10 }}
+                              stroke="#F1DAC4"
+                              tick={{ fill: '#F1DAC4', fontSize: 10 }}
                             />
                             <RechartsTooltip
                               formatter={(value) =>
@@ -828,8 +828,8 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                               }
                               labelFormatter={(label) => `${label}분`}
                               contentStyle={{
-                                backgroundColor: '#18181b',
-                                borderColor: '#3f3f46',
+                                backgroundColor: '#161B33',
+                                borderColor: '#474973',
                                 borderRadius: '8px',
                                 fontSize: '11px',
                               }}
@@ -837,23 +837,24 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                             <Legend
                               verticalAlign="top"
                               height={24}
-                              wrapperStyle={{ fontSize: '10px', color: '#a1a1aa' }}
+                              wrapperStyle={{ fontSize: '10px', color: '#F1DAC4' }}
                             />
                             <Line
                               name={`내 ${timelineMeta.label}`}
                               type="monotone"
                               dataKey={timelineMeta.myDataKey}
-                              stroke="#60a5fa"
-                              strokeWidth={2}
-                              dot={{ r: 2 }}
-                              activeDot={{ r: 4 }}
+                              stroke="#F1DAC4"
+                              strokeWidth={3}
+                              dot={{ r: 2.5 }}
+                              activeDot={{ r: 5 }}
                             />
                             <Line
                               name={`상대 ${timelineMeta.label}`}
                               type="monotone"
                               dataKey={timelineMeta.opponentDataKey}
-                              stroke="#f87171"
+                              stroke="#A69CAC"
                               strokeWidth={2}
+                              strokeDasharray="6 4"
                               dot={{ r: 2 }}
                               activeDot={{ r: 4 }}
                             />
@@ -861,7 +862,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                         </ResponsiveContainer>
                       </div>
                     ) : (
-                      <div className="w-full h-44 flex items-center justify-center text-xs text-gray-500">
+                      <div className="w-full h-44 flex items-center justify-center text-xs text-[#8B86A3]">
                         {isExcludedAnalysis
                           ? '집계 제외 경기라 시간대별 성장 추이를 표시하지 않습니다.'
                           : '분석 데이터가 준비되면 표시됩니다.'}
@@ -869,9 +870,9 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                     )}
                   </div>
 
-                  <div className="bg-[#1c1c1f] rounded-xl border border-gray-800/60 p-3 md:col-span-2">
-                    <h3 className="text-xs font-bold text-gray-300 mb-2 flex items-center gap-1">
-                      <Target className="w-3 h-3 text-purple-400" /> 시스템 코멘트
+                  <div className="bg-[#161B33] rounded-xl border border-[#474973]/70 p-3 md:col-span-2">
+                    <h3 className="text-xs font-bold text-[#F1DAC4] mb-2 flex items-center gap-1">
+                      <Target className="w-3 h-3 text-[#A69CAC]" /> 시스템 코멘트
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {comments.map((item, idx) => (
@@ -879,20 +880,20 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                           key={idx}
                           className={`p-2 rounded-lg border text-[11px] flex items-start gap-2 ${
                             item.type === 'good'
-                              ? 'bg-blue-900/10 border-blue-500/20 text-blue-100'
+                              ? 'bg-[#474973]/40 border-[#F1DAC4]/30 text-[#F1DAC4]'
                               : item.type === 'warning'
-                                ? 'bg-yellow-900/10 border-yellow-500/20 text-yellow-100'
-                                : 'bg-red-900/10 border-red-500/20 text-red-100'
+                                ? 'bg-[#474973]/45 border-[#F1DAC4]/30 text-[#F1DAC4]'
+                                : 'bg-[#161B33]/60 border-[#A69CAC]/35 text-[#F1DAC4]'
                           }`}
                         >
                           {item.type === 'good' && (
-                            <ThumbsUp className="w-3 h-3 text-blue-400 mt-0.5 flex-shrink-0" />
+                            <ThumbsUp className="w-3 h-3 text-[#F1DAC4] mt-0.5 flex-shrink-0" />
                           )}
                           {item.type === 'warning' && (
-                            <AlertCircle className="w-3 h-3 text-yellow-400 mt-0.5 flex-shrink-0" />
+                            <AlertCircle className="w-3 h-3 text-[#F1DAC4] mt-0.5 flex-shrink-0" />
                           )}
                           {item.type === 'bad' && (
-                            <AlertCircle className="w-3 h-3 text-red-400 mt-0.5 flex-shrink-0" />
+                            <AlertCircle className="w-3 h-3 text-[#A69CAC] mt-0.5 flex-shrink-0" />
                           )}
                           <div className="leading-tight">
                             {item.title && <div className="font-semibold mb-0.5">{item.title}</div>}
@@ -901,7 +902,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                         </div>
                       ))}
                       {!comments.length && (
-                        <div className="text-xs text-gray-500">표시할 코멘트가 없습니다.</div>
+                        <div className="text-xs text-[#8B86A3]">표시할 코멘트가 없습니다.</div>
                       )}
                     </div>
                   </div>
@@ -909,7 +910,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
               )}
 
               {!activeAnalysisError && !isAnalysisLoading && !analysisDetail && (
-                <div className="text-xs text-gray-500 text-center py-4">
+                <div className="text-xs text-[#8B86A3] text-center py-4">
                   분석 데이터가 준비되면 자동으로 표시됩니다.
                 </div>
               )}
