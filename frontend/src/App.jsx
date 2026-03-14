@@ -118,14 +118,14 @@ export default function App() {
     await fetchMmrData(trimmed);
   };
 
-  const remakes = safeNumber(data?.summary?.remakes, 0);
-  const invalid = safeNumber(data?.summary?.invalid, 0);
-  const scoreDetails = data?.summoner?.scoreDetails || {};
-  const visibleMatchCount = safeNumber(data?.summary?.displayMatchCount, data?.matches?.length || 0);
-  const scoreSampleCount = safeNumber(
-    data?.summary?.scoreSampleCount,
-    scoreDetails?.sampleCount || 0
-  );
+  const getGradeColor = (grade = '') => {
+    if (grade.startsWith('S')) {
+      return 'text-[#F1DAC4] drop-shadow-[0_0_8px_rgba(241,218,196,0.45)]';
+    }
+    if (grade.startsWith('A')) return 'text-[#A69CAC]';
+    if (grade.startsWith('B')) return 'text-[#C8BAD0]';
+    return 'text-[#8B86A3]';
+  };
 
   const profileIconId = safeNumber(data?.summoner?.profileIconId, 29);
   const summonerLevel = safeNumber(data?.summoner?.summonerLevel, 0);
@@ -198,8 +198,7 @@ export default function App() {
             <Search className="w-4 h-4 text-[#A69CAC] absolute left-3 top-3.5" />
             <button
               type="submit"
-              disabled={isLoading}
-              className="absolute right-2 top-1.5 bg-[#474973] hover:bg-[#5C5D8A] disabled:bg-[#474973]/60 text-[#F1DAC4] px-3 py-1 rounded text-xs font-medium"
+              className="absolute right-2 top-1.5 bg-[#474973] hover:bg-[#5C5D8A] text-[#F1DAC4] px-3 py-1 rounded text-xs font-medium"
             >
               {isLoading ? '검색중' : '검색'}
             </button>
@@ -220,8 +219,12 @@ export default function App() {
 
         {(isLoading || errorMessage) && (
           <div className="max-w-6xl mx-auto px-4 pb-4">
-            {isLoading && <div className="text-xs text-[#A69CAC]">데이터를 불러오는 중...</div>}
-            {errorMessage && <div className="text-xs text-[#F1DAC4] mt-1">{errorMessage}</div>}
+            {isLoading && (
+              <div className="text-xs text-[#A69CAC]">데이터를 불러오는 중...</div>
+            )}
+            {errorMessage && (
+              <div className="text-xs text-[#F1DAC4] mt-1">{errorMessage}</div>
+            )}
           </div>
         )}
       </header>
@@ -240,25 +243,31 @@ export default function App() {
                     className="w-20 h-20 rounded-xl border border-[#474973] object-cover"
                   />
                   <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#0D0C1D] border border-[#474973] text-[10px] px-2 py-0.5 rounded-full text-[#A69CAC] whitespace-nowrap">
-                    LV {summonerLevel}
+                    LV {data?.summoner?.summonerLevel}
                   </div>
                 </div>
 
-                <div className="min-w-0 flex-1">
-                  <h1 className="text-xl font-bold text-[#F1DAC4] mb-2 truncate">{summonerName}</h1>
+                <div>
+                  <h1 className="text-xl font-bold text-[#F1DAC4] mb-2">
+                    {data?.summoner?.name}
+                  </h1>
 
-                  <div className="flex flex-wrap gap-2">
-                    <div className="bg-[#474973] px-2 py-1 rounded flex flex-col items-center border border-[#A69CAC]/40 min-w-[64px]">
+                  <div className="flex gap-2">
+                    <div className="bg-[#474973] px-2 py-1 rounded flex flex-col items-center border border-[#A69CAC]/40">
                       <span className="text-[10px] text-[#A69CAC]">자체 평가</span>
-                      <span className={`text-sm font-black ${getGradeColor(safeString(scoreDetails?.grade, 'C'))}`}>
-                        {safeString(scoreDetails?.grade, 'C')}
+                      <span
+                        className={`text-sm font-black ${getGradeColor(
+                          data?.summoner?.scoreDetails?.grade || ''
+                        )}`}
+                      >
+                        {data?.summoner?.scoreDetails?.grade}
                       </span>
                     </div>
 
-                    <div className="bg-[#474973] px-2 py-1 rounded flex flex-col items-center border border-[#A69CAC]/40 min-w-[72px]">
+                    <div className="bg-[#474973] px-2 py-1 rounded flex flex-col items-center border border-[#A69CAC]/40">
                       <span className="text-[10px] text-[#A69CAC]">종합 점수</span>
                       <span className="text-sm font-bold text-[#F1DAC4]">
-                        {safeString(scoreDetails?.totalScore, '0.0')}
+                        {data?.summoner?.scoreDetails?.totalScore}
                       </span>
                     </div>
 
@@ -275,7 +284,7 @@ export default function App() {
 
             <div className="bg-[#161B33] rounded-xl p-5 border border-[#474973] flex items-center justify-between">
               <div className="flex flex-col items-center">
-                <span className="text-xs text-[#A69CAC] mb-2">최근 {visibleMatchCount}경기 표시</span>
+                <span className="text-xs text-[#A69CAC] mb-2">최근 2경기 표시</span>
                 <div className="relative w-20 h-20 flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90">
                     <circle cx="40" cy="40" r="34" fill="transparent" stroke="#474973" strokeWidth="8" />
@@ -284,19 +293,31 @@ export default function App() {
                       cy="40"
                       r="34"
                       fill="transparent"
+                      stroke="#474973"
+                      strokeWidth="8"
+                    />
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="34"
+                      fill="transparent"
                       stroke="#A69CAC"
                       strokeWidth="8"
-                      strokeDasharray={`${(safeNumber(data?.summary?.winRate, 0) / 100) * 213} 213`}
+                      strokeDasharray={`${((data?.summary?.winRate || 0) / 100) * 213} 213`}
                     />
                   </svg>
 
                   <div className="absolute flex flex-col items-center">
-                    <span className="text-sm font-bold text-[#F1DAC4]">{safeNumber(data?.summary?.winRate, 0)}%</span>
+                    <span className="text-sm font-bold text-[#F1DAC4]">
+                      {data?.summary?.winRate}%
+                    </span>
                     <span className="text-[10px] text-[#A69CAC]">
-                      {safeNumber(data?.summary?.wins, 0)}승 {safeNumber(data?.summary?.losses, 0)}패
+                      {data?.summary?.wins}승 {data?.summary?.losses}패
                     </span>
                     {remakes > 0 && (
-                      <span className="text-[10px] text-[#F1DAC4] mt-0.5">다시하기 {remakes}회</span>
+                      <span className="text-[10px] text-[#F1DAC4] mt-0.5">
+                        다시하기 {remakes}회
+                      </span>
                     )}
                   </div>
                 </div>
@@ -306,45 +327,15 @@ export default function App() {
 
               <div className="flex flex-col justify-center text-center">
                 <span className="text-xs text-[#A69CAC] mb-1">KDA 평점</span>
-                <div className="text-xl font-bold text-[#F1DAC4]">{safeString(data?.summary?.kda, '0.00')}</div>
-                <div className="text-[10px] text-[#8B86A3] mt-1">점수는 최근 {scoreSampleCount}경기 기준</div>
+                <div className="text-xl font-bold text-[#F1DAC4]">
+                  {data?.summary?.kda}
+                </div>
+                <div className="text-[10px] text-[#A69CAC]/80 mt-1">점수는 최근 10경기 기준</div>
                 {(remakes > 0 || invalid > 0) && (
-                  <div className="text-[10px] text-[#F1DAC4] mt-1">다시하기/제외 {remakes + invalid}경기</div>
+                  <div className="text-[10px] text-[#F1DAC4] mt-1">
+                    다시하기/제외 {remakes + invalid}경기
+                  </div>
                 )}
-              </div>
-            </div>
-
-            <div className="bg-[#161B33] rounded-xl border border-[#474973] p-4">
-              <div className="text-xs font-bold text-[#F1DAC4] mb-3">최근 점수 흐름</div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-[#474973] rounded-lg border border-[#A69CAC]/40 p-3">
-                  <div className="text-[10px] text-[#A69CAC] mb-1">평균 점수 변동</div>
-                  <div className={`text-lg font-bold ${getDeltaColor(averageDelta)}`}>
-                    {formatSignedNumber(averageDelta, 1)}
-                  </div>
-                </div>
-
-                <div className="bg-[#474973] rounded-lg border border-[#A69CAC]/40 p-3">
-                  <div className="text-[10px] text-[#A69CAC] mb-1">평균 퍼포먼스</div>
-                  <div className="text-lg font-bold text-[#F1DAC4]">
-                    {safeNumber(scoreDetails?.averagePerformance, 0).toFixed(1)}
-                  </div>
-                </div>
-
-                <div className="bg-[#474973] rounded-lg border border-[#A69CAC]/40 p-3">
-                  <div className="text-[10px] text-[#A69CAC] mb-1">평균 PerfIndex</div>
-                  <div className={`text-lg font-bold ${getDeltaColor(averagePerfIndex)}`}>
-                    {formatSignedNumber(averagePerfIndex, 2)}
-                  </div>
-                </div>
-
-                <div className="bg-[#474973] rounded-lg border border-[#A69CAC]/40 p-3">
-                  <div className="text-[10px] text-[#A69CAC] mb-1">집계 경기 수</div>
-                  <div className="text-lg font-bold text-[#F1DAC4]">
-                    {safeNumber(scoreDetails?.countedGames, 0)}
-                    <span className="text-xs text-[#A69CAC] ml-1">/ {scoreSampleCount}</span>
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -358,7 +349,7 @@ export default function App() {
                 {recentChampionRows.length ? (
                   recentChampionRows.map((champ, idx) => (
                     <div
-                      key={`${champ.name}-${idx}`}
+                      key={idx}
                       className="flex items-center gap-3 p-2.5 hover:bg-[#474973] rounded-lg transition-colors cursor-default"
                     >
                       <img
@@ -367,25 +358,34 @@ export default function App() {
                         className="w-8 h-8 rounded-full bg-[#474973]"
                       />
 
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-[#F1DAC4] leading-tight truncate">{champ.name}</div>
-                        <div className="text-[10px] text-[#A69CAC] mt-0.5">{champ.games} 게임</div>
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-[#F1DAC4] leading-tight">
+                          {champ.name}
+                        </div>
+                        <div className="text-[10px] text-[#A69CAC] mt-0.5">
+                          {champ.games} 게임
+                        </div>
                       </div>
 
                       <div className="text-right">
                         <div
                           className={`text-sm font-semibold ${
-                            safeNumber(champ.winRate, 0) >= 60 ? 'text-[#F1DAC4]' : 'text-[#A69CAC]'
+                            champ.winRate >= 60 ? 'text-[#F1DAC4]' : 'text-[#A69CAC]'
                           }`}
                         >
-                          {safeNumber(champ.winRate, 0)}%
+                          {champ.winRate}%
+                        </div>
+                        <div className="text-[10px] text-[#A69CAC]">
+                          {champ.kda} 평점
                         </div>
                         <div className="text-[10px] text-[#A69CAC]">{safeString(champ.kda, '0.0')} 평점</div>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="p-4 text-xs text-[#8B86A3] text-center">표시할 챔피언 데이터가 없습니다.</div>
+                  <div className="p-4 text-xs text-[#8B86A3] text-center">
+                    표시할 챔피언 데이터가 없습니다.
+                  </div>
                 )}
               </div>
             </div>

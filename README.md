@@ -230,23 +230,85 @@
 
 ---
 
-## 9. 실행 방법
+## 9. Pull 이후 로컬 실행/테스트 가이드
 
-## 9.1 Backend
+아래 순서는 **코드 pull 직후 검증**을 기준으로 작성했습니다.
+
+## 9.1 코드 최신화
 ```bash
-./gradlew bootRun
+git checkout <작업브랜치>
+git pull origin <작업브랜치>
 ```
 
-## 9.2 Frontend
+## 9.2 Backend 시작
+```bash
+./gradlew clean bootRun
+```
+
+> 기본 포트: `8080`
+
+## 9.3 Frontend 시작
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-## 9.3 로컬 접속
+> 기본 포트: `5173` (Vite proxy로 `/api` 요청은 백엔드 `8080`으로 전달)
+
+## 9.4 로컬 접속
 - Frontend: `http://localhost:5173`
-- Backend: `http://localhost:8080`
+- Backend 헬스체크(간단): `http://localhost:8080/api/mmr?name=<RiotID>&queue=solo`
+
+## 9.5 테스트 명령어
+
+### Backend
+```bash
+./gradlew test
+./gradlew build
+```
+
+### Frontend
+```bash
+cd frontend
+npm run build
+```
+
+## 9.6 추천 테스트 시나리오 (수동 점검)
+
+1. **기본 검색 플로우**
+   - 프론트에서 `gameName#tagLine` 입력 후 조회
+   - 기대결과: 소환사 카드, 점수, 최근 경기 목록 노출
+
+2. **큐 파라미터 분기 확인**
+   - `solo`, `flex`, `both` 각각 조회
+   - 기대결과: `meta.requestedQueue`, `meta.resolvedQueues`가 요청과 일치
+
+3. **매치 상세 분석 API 확인**
+   - 최근 경기의 `matchId`, 검색한 유저의 `puuid` 확보
+   - 호출:
+     ```bash
+     curl "http://localhost:8080/api/matches/<matchId>/analysis?puuid=<puuid>&bucketMinutes=5"
+     ```
+   - 기대결과: `laneComparison`, `metricCards`, `timelineBuckets` 데이터 존재
+
+4. **버킷 분기 확인**
+   - `bucketMinutes=3`, `5`, `10` 각각 호출
+   - 기대결과: 응답의 시간 버킷 간격이 요청값에 맞게 변경
+
+5. **예외 입력 확인**
+   - 존재하지 않는 Riot ID 조회
+   - 기대결과: 에러 메시지/상태코드가 프론트/백엔드에서 일관되게 처리
+
+## 9.7 빠른 점검용 curl 예시
+
+```bash
+# 1) MMR 분석
+curl "http://localhost:8080/api/mmr?name=Hide%20on%20bush%23KR1&queue=both"
+
+# 2) 상세 분석
+curl "http://localhost:8080/api/matches/KR_1234567890/analysis?puuid=<puuid>&bucketMinutes=5"
+```
 
 ---
 
