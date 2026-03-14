@@ -5,9 +5,11 @@ import java.util.List;
 
 public class MatchSummary {
 
+    // ===== 기존 핵심 식별 정보 =====
     private String matchId;
     private MatchResultType resultType;
 
+    // ===== 기존 기본 전적 정보 =====
     private int kills;
     private int deaths;
     private int assists;
@@ -36,8 +38,64 @@ public class MatchSummary {
     private String displayResult;
     private boolean loss;
 
+    // ===== v1 확장: 참가자/팀 기본 식별 =====
+    private int participantId;
+    private int teamId;
+    private String riotId;
+
+    // ===== v1 확장: 개인 상세 스탯 =====
+    private int championLevel;
+    private int visionScore;
+    private int controlWardsPlaced;
+    private int wardsPlaced;
+    private int wardsKilled;
+    private int totalTimeSpentDead;
+
+    private int damageToChampions;
+    private int damageToObjectives;
+    private int damageToTurrets;
+
+    // ===== v1 확장: 팀 총합 스탯 =====
+    private int teamKills;
+    private int teamGoldEarned;
+    private int teamDamageToChampions;
+
+    // ===== v1 확장: 15분 지표 =====
+    private int goldDiff15;
+    private int csDiff15;
+    private int xpDiff15;
+
+    // ===== v1 확장: 파생 지표 =====
+    private double killParticipation;
+    private double damageShare;
+    private double damageConversion;
+    private double visionPerMinute;
+    private double goldPerMinute;
+    private double csPerMinute;
+    private double timeAliveRatio;
+
+    // ===== v1 확장: 오브젝트/패배유발 =====
+    private int objectiveParticipationScore;
+    private int throwDeathPenalty;
+    private boolean leaver;
+
+    // ===== v1 확장: 점수 계산 결과 =====
+    private int baseDelta;
+    private int performanceDelta;
+    private int finalDelta;
+
+    private double perfIndex;
+    private double growthScore;
+    private double teamplayScore;
+    private double efficiencyScore;
+    private double survivalScore;
+
+    private String scoreTier;
+
     public MatchSummary() {
     }
+
+    // ===== 기존 getter/setter =====
 
     public String getMatchId() {
         return matchId;
@@ -92,7 +150,7 @@ public class MatchSummary {
     }
 
     public void setItems(List<Integer> items) {
-        this.items = items;
+        this.items = items == null ? new ArrayList<>() : items;
     }
 
     public List<String> getTeamMembers() {
@@ -100,7 +158,7 @@ public class MatchSummary {
     }
 
     public void setTeamMembers(List<String> teamMembers) {
-        this.teamMembers = teamMembers;
+        this.teamMembers = teamMembers == null ? new ArrayList<>() : teamMembers;
     }
 
     public List<String> getTeamChamps() {
@@ -108,7 +166,7 @@ public class MatchSummary {
     }
 
     public void setTeamChamps(List<String> teamChamps) {
-        this.teamChamps = teamChamps;
+        this.teamChamps = teamChamps == null ? new ArrayList<>() : teamChamps;
     }
 
     public int getGameDurationMinutes() {
@@ -245,5 +303,303 @@ public class MatchSummary {
 
     public void setLoss(boolean loss) {
         this.loss = loss;
+    }
+
+    // ===== v1 확장 getter/setter =====
+
+    public int getParticipantId() {
+        return participantId;
+    }
+
+    public void setParticipantId(int participantId) {
+        this.participantId = participantId;
+    }
+
+    public int getTeamId() {
+        return teamId;
+    }
+
+    public void setTeamId(int teamId) {
+        this.teamId = teamId;
+    }
+
+    public String getRiotId() {
+        return riotId;
+    }
+
+    public void setRiotId(String riotId) {
+        this.riotId = riotId;
+    }
+
+    public int getChampionLevel() {
+        return championLevel;
+    }
+
+    public void setChampionLevel(int championLevel) {
+        this.championLevel = championLevel;
+    }
+
+    public int getVisionScore() {
+        return visionScore;
+    }
+
+    public void setVisionScore(int visionScore) {
+        this.visionScore = visionScore;
+    }
+
+    public int getControlWardsPlaced() {
+        return controlWardsPlaced;
+    }
+
+    public void setControlWardsPlaced(int controlWardsPlaced) {
+        this.controlWardsPlaced = controlWardsPlaced;
+    }
+
+    public int getWardsPlaced() {
+        return wardsPlaced;
+    }
+
+    public void setWardsPlaced(int wardsPlaced) {
+        this.wardsPlaced = wardsPlaced;
+    }
+
+    public int getWardsKilled() {
+        return wardsKilled;
+    }
+
+    public void setWardsKilled(int wardsKilled) {
+        this.wardsKilled = wardsKilled;
+    }
+
+    public int getTotalTimeSpentDead() {
+        return totalTimeSpentDead;
+    }
+
+    public void setTotalTimeSpentDead(int totalTimeSpentDead) {
+        this.totalTimeSpentDead = totalTimeSpentDead;
+    }
+
+    public int getDamageToChampions() {
+        return damageToChampions;
+    }
+
+    public void setDamageToChampions(int damageToChampions) {
+        this.damageToChampions = damageToChampions;
+    }
+
+    public int getDamageToObjectives() {
+        return damageToObjectives;
+    }
+
+    public void setDamageToObjectives(int damageToObjectives) {
+        this.damageToObjectives = damageToObjectives;
+    }
+
+    public int getDamageToTurrets() {
+        return damageToTurrets;
+    }
+
+    public void setDamageToTurrets(int damageToTurrets) {
+        this.damageToTurrets = damageToTurrets;
+    }
+
+    public int getTeamKills() {
+        return teamKills;
+    }
+
+    public void setTeamKills(int teamKills) {
+        this.teamKills = teamKills;
+    }
+
+    public int getTeamGoldEarned() {
+        return teamGoldEarned;
+    }
+
+    public void setTeamGoldEarned(int teamGoldEarned) {
+        this.teamGoldEarned = teamGoldEarned;
+    }
+
+    public int getTeamDamageToChampions() {
+        return teamDamageToChampions;
+    }
+
+    public void setTeamDamageToChampions(int teamDamageToChampions) {
+        this.teamDamageToChampions = teamDamageToChampions;
+    }
+
+    public int getGoldDiff15() {
+        return goldDiff15;
+    }
+
+    public void setGoldDiff15(int goldDiff15) {
+        this.goldDiff15 = goldDiff15;
+    }
+
+    public int getCsDiff15() {
+        return csDiff15;
+    }
+
+    public void setCsDiff15(int csDiff15) {
+        this.csDiff15 = csDiff15;
+    }
+
+    public int getXpDiff15() {
+        return xpDiff15;
+    }
+
+    public void setXpDiff15(int xpDiff15) {
+        this.xpDiff15 = xpDiff15;
+    }
+
+    public double getKillParticipation() {
+        return killParticipation;
+    }
+
+    public void setKillParticipation(double killParticipation) {
+        this.killParticipation = killParticipation;
+    }
+
+    public double getDamageShare() {
+        return damageShare;
+    }
+
+    public void setDamageShare(double damageShare) {
+        this.damageShare = damageShare;
+    }
+
+    public double getDamageConversion() {
+        return damageConversion;
+    }
+
+    public void setDamageConversion(double damageConversion) {
+        this.damageConversion = damageConversion;
+    }
+
+    public double getVisionPerMinute() {
+        return visionPerMinute;
+    }
+
+    public void setVisionPerMinute(double visionPerMinute) {
+        this.visionPerMinute = visionPerMinute;
+    }
+
+    public double getGoldPerMinute() {
+        return goldPerMinute;
+    }
+
+    public void setGoldPerMinute(double goldPerMinute) {
+        this.goldPerMinute = goldPerMinute;
+    }
+
+    public double getCsPerMinute() {
+        return csPerMinute;
+    }
+
+    public void setCsPerMinute(double csPerMinute) {
+        this.csPerMinute = csPerMinute;
+    }
+
+    public double getTimeAliveRatio() {
+        return timeAliveRatio;
+    }
+
+    public void setTimeAliveRatio(double timeAliveRatio) {
+        this.timeAliveRatio = timeAliveRatio;
+    }
+
+    public int getObjectiveParticipationScore() {
+        return objectiveParticipationScore;
+    }
+
+    public void setObjectiveParticipationScore(int objectiveParticipationScore) {
+        this.objectiveParticipationScore = objectiveParticipationScore;
+    }
+
+    public int getThrowDeathPenalty() {
+        return throwDeathPenalty;
+    }
+
+    public void setThrowDeathPenalty(int throwDeathPenalty) {
+        this.throwDeathPenalty = throwDeathPenalty;
+    }
+
+    public boolean isLeaver() {
+        return leaver;
+    }
+
+    public void setLeaver(boolean leaver) {
+        this.leaver = leaver;
+    }
+
+    public int getBaseDelta() {
+        return baseDelta;
+    }
+
+    public void setBaseDelta(int baseDelta) {
+        this.baseDelta = baseDelta;
+    }
+
+    public int getPerformanceDelta() {
+        return performanceDelta;
+    }
+
+    public void setPerformanceDelta(int performanceDelta) {
+        this.performanceDelta = performanceDelta;
+    }
+
+    public int getFinalDelta() {
+        return finalDelta;
+    }
+
+    public void setFinalDelta(int finalDelta) {
+        this.finalDelta = finalDelta;
+    }
+
+    public double getPerfIndex() {
+        return perfIndex;
+    }
+
+    public void setPerfIndex(double perfIndex) {
+        this.perfIndex = perfIndex;
+    }
+
+    public double getGrowthScore() {
+        return growthScore;
+    }
+
+    public void setGrowthScore(double growthScore) {
+        this.growthScore = growthScore;
+    }
+
+    public double getTeamplayScore() {
+        return teamplayScore;
+    }
+
+    public void setTeamplayScore(double teamplayScore) {
+        this.teamplayScore = teamplayScore;
+    }
+
+    public double getEfficiencyScore() {
+        return efficiencyScore;
+    }
+
+    public void setEfficiencyScore(double efficiencyScore) {
+        this.efficiencyScore = efficiencyScore;
+    }
+
+    public double getSurvivalScore() {
+        return survivalScore;
+    }
+
+    public void setSurvivalScore(double survivalScore) {
+        this.survivalScore = survivalScore;
+    }
+
+    public String getScoreTier() {
+        return scoreTier;
+    }
+
+    public void setScoreTier(String scoreTier) {
+        this.scoreTier = scoreTier;
     }
 }

@@ -133,6 +133,26 @@ const BUCKET_OPTIONS = [3, 5, 10];
 
 const getResultStyle = (resultType) => RESULT_STYLE[resultType] || RESULT_STYLE.INVALID;
 
+const safeNumber = (value, fallback = 0) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const safeString = (value, fallback = '') => {
+  if (value === null || value === undefined) return fallback;
+  const text = String(value);
+  return text.trim() ? text : fallback;
+};
+
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+const formatSigned = (value, digits = 0) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return digits > 0 ? '0.0' : '0';
+  if (n > 0) return `+${n.toFixed(digits)}`;
+  return n.toFixed(digits);
+};
+
 const normalizePosition = (position) => {
   if (!position) return 'UNKNOWN';
 
@@ -165,36 +185,7 @@ const getTeamHeaderLabel = (team, fallbackTeamName) => {
   return `${team.isWin ? '승리' : '패배'} (${fallbackTeamName})`;
 };
 
-const findMetricCard = (metricCards, key) => metricCards.find((card) => card.key === key);
-
-const buildRadarData = (metricCards) => {
-  const mapping = [
-    { key: 'kp', subject: '킬관여' },
-    { key: 'cspm', subject: 'CS' },
-    { key: 'gpm', subject: '골드' },
-    { key: 'dpm', subject: '딜량' },
-    { key: 'vision', subject: '시야' },
-    { key: 'deadTime', subject: '생존' },
-  ];
-
-  return mapping.map(({ key, subject }) => {
-    const metric = findMetricCard(metricCards, key);
-    return {
-      subject,
-      score: metric?.score || 0,
-    };
-  });
-};
-
-const formatMetricValue = (metric) => {
-  if (!metric) return '-';
-  if (metric.unit) {
-    return `${metric.value}${metric.unit}`;
-  }
-  return String(metric.value);
-};
-
-const formatGold = (value) => `${(Number(value || 0) / 1000).toFixed(1)}k`;
+const formatGold = (value) => `${(safeNumber(value, 0) / 1000).toFixed(1)}k`;
 
 const formatObjectiveSummary = (objectives = {}) => {
   const dragons = objectives.dragons || 0;
@@ -316,6 +307,247 @@ const formatTooltipValue = (value, unit, formatter) => {
   return [`${display} ${unit}`, ''];
 };
 
+const centeredScoreToPercent = (value) => clamp(Math.round((safeNumber(value, 0) + 1) * 50), 0, 100);
+const ratioToPercent = (value, max = 1) =>
+  clamp(Math.round((safeNumber(value, 0) / Math.max(max, 0.0001)) * 100), 0, 100);
+const capToPercent = (value, cap) =>
+  clamp(Math.round((safeNumber(value, 0) / Math.max(cap, 1)) * 100), 0, 100);
+//const inverseCapToPercent = (value, cap) =>
+ // clamp(100 - Math.round((safeNumber(value, 0) / Math.max(cap, 1)) * 100), 0, 100);
+
+const findMetricCard = (metricCards, keys) =>
+  metricCards.find((card) => keys.includes(card?.key));
+
+const buildRadarData = (metricCards, match) => {
+  const scoring = match?.scoring || {};
+  const metrics = match?.metrics || {};
+
+  const fallback = {
+    line: centeredScoreToPercent(scoring.growthScore),
+    kp: ratioToPercent(metrics.killParticipation, 0.7),
+    objective: capToPercent(metrics.objectiveParticipationScore, 10),
+    vision: ratioToPercent(metrics.visionPerMinute, 2.5),
+    efficiency: centeredScoreToPercent(scoring.efficiencyScore),
+    death: centeredScoreToPercent(scoring.survivalScore),
+  };
+
+  return [
+    {
+      subject: '라인전',
+      score:
+        safeNumber(
+          findMetricCard(metricCards, ['gd15', 'line', 'growth', 'lane'])?.score,
+          fallback.line,
+        ) || 0,
+    },
+    {
+      subject: '합류',
+      score:
+        safeNumber(
+          findMetricCard(metricCards, ['kp', 'killParticipation', 'participation'])?.score,
+          fallback.kp,
+        ) || 0,
+    },
+    {
+      subject: '오브젝트',
+      score:
+        safeNumber(
+          findMetricCard(metricCards, ['objective', 'objectives'])?.score,
+          fallback.objective,
+        ) || 0,
+    },
+    {
+      subject: '시야',
+      score:
+        safeNumber(findMetricCard(metricCards, ['vision'])?.score, fallback.vision) || 0,
+    },
+    {
+      subject: '효율',
+      score:
+        safeNumber(
+          findMetricCard(metricCards, ['damageEff', 'efficiency', 'damageConversion'])?.score,
+          fallback.efficiency,
+        ) || 0,
+    },
+    {
+      subject: '데스관리',
+      score:
+        safeNumber(
+          findMetricCard(metricCards, ['throwDeath', 'deadTime', 'survival'])?.score,
+          fallback.death,
+        ) || 0,
+    },
+  ];
+};
+
+const buildFallbackMetricCards = (match) => {
+  const scoring = match?.scoring || {};
+  const metrics = match?.metrics || {};
+
+  return [
+    {
+      key: 'gd15',
+      label: '라인전',
+      displayValue: `GD15 ${formatSigned(metrics.goldDiff15, 0)} / CSD15 ${formatSigned(
+        metrics.csDiff15,
+        0,
+      )}`,
+      score: centeredScoreToPercent(scoring.growthScore),
+      description: '15분 기준 골드·CS·경험치 차이를 합산한 성장 우위입니다.',
+    },
+    {
+      key: 'kp',
+      label: '합류',
+      displayValue: `${Math.round(safeNumber(metrics.killParticipation, 0) * 100)}%`,
+      score: ratioToPercent(metrics.killParticipation, 0.7),
+      description: '팀 킬에 얼마나 자주 관여했는지 보여줍니다.',
+    },
+    {
+      key: 'objective',
+      label: '오브젝트',
+      displayValue: `${safeNumber(metrics.objectiveParticipationScore, 0)}점`,
+      score: capToPercent(metrics.objectiveParticipationScore, 10),
+      description: '드래곤·전령·바론·타워 등 주요 오브젝트 기여 점수입니다.',
+    },
+    {
+      key: 'vision',
+      label: '시야',
+      displayValue: `${safeNumber(metrics.visionPerMinute, 0).toFixed(2)}/분`,
+      score: ratioToPercent(metrics.visionPerMinute, 2.5),
+      description: '분당 시야 점수와 와드 기여를 반영합니다.',
+    },
+    {
+      key: 'damageEff',
+      label: '효율',
+      displayValue: `${safeNumber(metrics.damageConversion, 0).toFixed(2)}x`,
+      score: centeredScoreToPercent(scoring.efficiencyScore),
+      description: '먹은 골드 대비 딜 기여 효율과 생존 효율을 반영합니다.',
+    },
+    {
+      key: 'throwDeath',
+      label: '데스관리',
+      displayValue: `패널티 ${safeNumber(metrics.throwDeathPenalty, 0)}`,
+      score: centeredScoreToPercent(scoring.survivalScore),
+      description: '후반·오브젝트 직전 사망 등 패배 유발 데스를 감점합니다.',
+    },
+  ];
+};
+
+const buildFallbackComments = (match) => {
+  const scoring = match?.scoring || {};
+  const metrics = match?.metrics || {};
+  const comments = [];
+
+  if (match?.isRemake) {
+    comments.push({
+      type: 'warning',
+      title: '다시하기 경기',
+      text: '다시하기 경기는 점수 집계에서 제외됩니다.',
+    });
+    return comments;
+  }
+
+  if (!match?.isCountedGame) {
+    comments.push({
+      type: 'warning',
+      title: '집계 제외 경기',
+      text: '이 경기는 내부 점수 계산에 반영되지 않습니다.',
+    });
+    return comments;
+  }
+
+  if (safeNumber(scoring.finalDelta, 0) >= 24) {
+    comments.push({
+      type: 'good',
+      title: '높은 점수 상승',
+      text: `이번 경기는 ${formatSigned(scoring.finalDelta, 0)}점으로 크게 반영됐습니다.`,
+    });
+  } else if (safeNumber(scoring.finalDelta, 0) <= -24) {
+    comments.push({
+      type: 'bad',
+      title: '큰 점수 하락',
+      text: `이번 경기는 ${formatSigned(scoring.finalDelta, 0)}점으로 크게 하락했습니다.`,
+    });
+  }
+
+  if (safeNumber(metrics.killParticipation, 0) >= 0.55) {
+    comments.push({
+      type: 'good',
+      title: '팀 합류 우수',
+      text: `킬 관여율이 ${Math.round(metrics.killParticipation * 100)}%로 높습니다.`,
+    });
+  } else if (safeNumber(metrics.killParticipation, 0) <= 0.30) {
+    comments.push({
+      type: 'warning',
+      title: '합류 부족',
+      text: '팀 전투 관여가 낮아 기여 점수가 제한됐습니다.',
+    });
+  }
+
+  if (safeNumber(metrics.goldDiff15, 0) >= 400) {
+    comments.push({
+      type: 'good',
+      title: '초반 우세',
+      text: `15분 골드 차이가 ${formatSigned(metrics.goldDiff15, 0)}로 라인전 우위가 컸습니다.`,
+    });
+  } else if (safeNumber(metrics.goldDiff15, 0) <= -400) {
+    comments.push({
+      type: 'warning',
+      title: '초반 열세',
+      text: `15분 골드 차이가 ${formatSigned(metrics.goldDiff15, 0)}로 초반 손해가 있었습니다.`,
+    });
+  }
+
+  if (safeNumber(metrics.objectiveParticipationScore, 0) >= 6) {
+    comments.push({
+      type: 'good',
+      title: '오브젝트 기여',
+      text: '드래곤·전령·타워 등 오브젝트 관여가 높게 반영됐습니다.',
+    });
+  }
+
+  if (safeNumber(metrics.throwDeathPenalty, 0) >= 6) {
+    comments.push({
+      type: 'bad',
+      title: '패배 유발 데스 주의',
+      text: '후반 또는 오브젝트 타이밍 직전 사망이 감점으로 작용했습니다.',
+    });
+  }
+
+  if (safeNumber(metrics.visionPerMinute, 0) >= 1.8) {
+    comments.push({
+      type: 'good',
+      title: '시야 관리 양호',
+      text: '분당 시야 점수가 높아 운영 기여가 반영됐습니다.',
+    });
+  }
+
+  if (!comments.length) {
+    comments.push({
+      type: 'warning',
+      title: '보통 수준 경기',
+      text: '큰 가감점 요소 없이 기본 승패 점수 중심으로 반영된 경기입니다.',
+    });
+  }
+
+  return comments.slice(0, 4);
+};
+
+const formatMetricValue = (metric) => {
+  if (!metric) return '-';
+  if (metric.displayValue) return metric.displayValue;
+  if (metric.unit) return `${metric.value}${metric.unit}`;
+  return String(metric.value ?? '-');
+};
+
+const getDeltaTextColor = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 'text-gray-400';
+  if (n > 0) return 'text-emerald-400';
+  if (n < 0) return 'text-rose-400';
+  return 'text-gray-400';
+};
+
 const MatchCard = ({ match, isExpanded, onToggle }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [analysisDetail, setAnalysisDetail] = useState(null);
@@ -336,17 +568,9 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
   );
 
   useEffect(() => {
-    if (!isExpanded) {
-      return;
-    }
-
-    if (!match.matchId || !match.puuid) {
-      return;
-    }
-
-    if (hasFreshAnalysis) {
-      return;
-    }
+    if (!isExpanded) return;
+    if (!match.matchId || !match.puuid) return;
+    if (hasFreshAnalysis) return;
 
     let cancelled = false;
 
@@ -380,7 +604,6 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
   }, [isExpanded, match.matchId, match.puuid, bucketMinutes, hasFreshAnalysis, analysisRequestKey]);
 
   const activeAnalysisError = analysisErrorKey === analysisRequestKey ? analysisError : '';
-
   const isAnalysisLoading =
     isExpanded &&
     Boolean(match.matchId && match.puuid) &&
@@ -392,30 +615,39 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
     [analysisDetail, match.overview],
   );
 
-  const metricCards = useMemo(() => analysisDetail?.metricCards ?? [], [analysisDetail]);
-  const comments = useMemo(() => analysisDetail?.coachingComments ?? [], [analysisDetail]);
+  const metricCards = useMemo(() => {
+    const apiCards = analysisDetail?.metricCards ?? [];
+    return apiCards.length > 0 ? apiCards : buildFallbackMetricCards(match);
+  }, [analysisDetail, match]);
+
+  const comments = useMemo(() => {
+    const apiComments = analysisDetail?.coachingComments ?? [];
+    return apiComments.length > 0 ? apiComments : buildFallbackComments(match);
+  }, [analysisDetail, match]);
+
   const laneComparison = useMemo(() => analysisDetail?.laneComparison ?? null, [analysisDetail]);
   const timelineData = useMemo(
     () => buildTimelineData(analysisDetail?.timelineBuckets ?? []),
     [analysisDetail],
   );
-  const radarData = useMemo(() => buildRadarData(metricCards), [metricCards]);
+  const radarData = useMemo(() => buildRadarData(metricCards, match), [metricCards, match]);
   const timelineMeta = useMemo(() => getTimelineMetricMeta(timelineMetric), [timelineMetric]);
 
-  const isExcludedAnalysis = useMemo(
-    () =>
-      Boolean(
-        analysisDetail &&
-          (analysisDetail.resultType === 'REMAKE' || analysisDetail.resultType === 'INVALID'),
-      ),
-    [analysisDetail],
-  );
+  const isExcludedAnalysis = useMemo(() => {
+    const sourceResult = analysisDetail?.resultType || resultType;
+    return sourceResult === 'REMAKE' || sourceResult === 'INVALID';
+  }, [analysisDetail, resultType]);
 
   const hasOverviewPlayers = useMemo(
     () =>
       Boolean(overviewData?.blueTeam?.players?.length || overviewData?.redTeam?.players?.length),
     [overviewData],
   );
+
+  const finalDelta = safeNumber(match?.scoring?.finalDelta, 0);
+  const performanceScore = safeNumber(match?.scoring?.performanceScore, 0);
+  const perfIndex = safeNumber(match?.scoring?.perfIndex, 0);
+  const matchScoreTier = safeString(match?.scoring?.scoreTier, '');
 
   return (
     <div className="flex flex-col rounded-xl border border-[#474973] bg-[#161B33] overflow-hidden">
@@ -462,12 +694,37 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                 ? `${match.summary.position} · ${match.summary.champion}`
                 : match.summary.champion}
             </div>
+
+            <div className="mt-2 flex flex-wrap justify-center gap-1.5">
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] border ${
+                  finalDelta > 0
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                    : finalDelta < 0
+                      ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                      : 'bg-gray-500/10 border-gray-500/30 text-gray-300'
+                }`}
+              >
+                점수 {formatSigned(finalDelta, 0)}
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] border bg-purple-500/10 border-purple-500/30 text-purple-300">
+                PERF {performanceScore}
+              </span>
+              {matchScoreTier && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] border bg-blue-500/10 border-blue-500/30 text-blue-300">
+                  {matchScoreTier}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-col items-center justify-center w-16 sm:w-20 text-xs text-[#A69CAC]">
             <div>CS {match.summary.cs}</div>
             <div className="mt-1 text-[10px] text-[#8B86A3]">
               {match.summary.gold ? `${Math.round(match.summary.gold / 100) / 10}k 골드` : '-'}
+            </div>
+            <div className={`mt-1 text-[10px] ${getDeltaTextColor(perfIndex)}`}>
+              PI {formatSigned(perfIndex, 2)}
             </div>
           </div>
         </div>
@@ -646,7 +903,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                 </div>
               )}
 
-              {!activeAnalysisError && analysisDetail && (
+              {!activeAnalysisError && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-[#161B33] rounded-xl border border-[#474973]/70 p-3 flex flex-col items-center col-span-1">
                     <h3 className="text-xs font-bold text-[#F1DAC4] mb-2">플레이 성향 지표</h3>
@@ -865,7 +1122,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                       <div className="w-full h-44 flex items-center justify-center text-xs text-[#8B86A3]">
                         {isExcludedAnalysis
                           ? '집계 제외 경기라 시간대별 성장 추이를 표시하지 않습니다.'
-                          : '분석 데이터가 준비되면 표시됩니다.'}
+                          : '상세 분석 API 응답이 오면 시간대별 추이가 표시됩니다.'}
                       </div>
                     )}
                   </div>

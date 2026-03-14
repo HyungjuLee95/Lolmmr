@@ -1,9 +1,68 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import axios from 'axios';
 import MatchCard from './components/MatchCard';
 import { Flame, Search, Trophy } from './components/icons';
 import { MOCK_DATA } from './data/mmrMockData';
 import { mapApiToUiData } from './utils/mmrMapper';
+
+const PROFILE_ICON_VERSION = '14.3.1';
+
+const safeNumber = (value, fallback = 0) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const safeString = (value, fallback = '') => {
+  if (value === null || value === undefined) return fallback;
+  const text = String(value);
+  return text.trim() ? text : fallback;
+};
+
+const formatSignedNumber = (value, digits = 1) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '0.0';
+  if (n > 0) return `+${n.toFixed(digits)}`;
+  return n.toFixed(digits);
+};
+
+const getGradeColor = (grade = '') => {
+  if (grade.startsWith('S')) {
+    return 'text-[#F1DAC4] drop-shadow-[0_0_8px_rgba(241,218,196,0.45)]';
+  }
+  if (grade.startsWith('A')) return 'text-[#A69CAC]';
+  if (grade.startsWith('B')) return 'text-[#C8BAD0]';
+  if (grade.startsWith('C')) return 'text-[#A69CAC]';
+  return 'text-[#8B86A3]';
+};
+
+const getDeltaColor = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 'text-[#8B86A3]';
+  if (n > 0) return 'text-emerald-400';
+  if (n < 0) return 'text-rose-400';
+  return 'text-[#8B86A3]';
+};
+
+const getTierBadgeClass = (tier = '') => {
+  const normalized = String(tier).toUpperCase();
+
+  if (normalized === 'DIAMOND') {
+    return 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30';
+  }
+  if (normalized === 'EMERALD') {
+    return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';
+  }
+  if (normalized === 'PLATINUM') {
+    return 'bg-sky-500/10 text-sky-300 border-sky-500/30';
+  }
+  if (normalized === 'GOLD') {
+    return 'bg-amber-500/10 text-amber-300 border-amber-500/30';
+  }
+  if (normalized === 'SILVER') {
+    return 'bg-slate-400/10 text-slate-300 border-slate-500/30';
+  }
+  return 'bg-orange-500/10 text-orange-300 border-orange-500/30';
+};
 
 export default function App() {
   const [searchInput, setSearchInput] = useState('');
@@ -68,8 +127,17 @@ export default function App() {
     return 'text-[#8B86A3]';
   };
 
-  const remakes = data?.summary?.remakes || 0;
-  const invalid = data?.summary?.invalid || 0;
+  const profileIconId = safeNumber(data?.summoner?.profileIconId, 29);
+  const summonerLevel = safeNumber(data?.summoner?.summonerLevel, 0);
+  const summonerName = safeString(data?.summoner?.name, 'Unknown');
+  const scoreTier = safeString(scoreDetails?.scoreTier, '');
+  const averageDelta = safeNumber(scoreDetails?.averageDelta, 0);
+  const averagePerfIndex = safeNumber(scoreDetails?.averagePerfIndex, 0);
+
+  const recentChampionRows = useMemo(
+    () => (Array.isArray(data?.summary?.recentChampions) ? data.summary.recentChampions : []),
+    [data]
+  );
 
   if (!hasSearched) {
     return (
@@ -170,7 +238,7 @@ export default function App() {
               <div className="flex items-start gap-4">
                 <div className="relative">
                   <img
-                    src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/profileicon/${data?.summoner?.profileIconId}.png`}
+                    src={`https://ddragon.leagueoflegends.com/cdn/${PROFILE_ICON_VERSION}/img/profileicon/${profileIconId}.png`}
                     alt="Profile"
                     className="w-20 h-20 rounded-xl border border-[#474973] object-cover"
                   />
@@ -202,6 +270,13 @@ export default function App() {
                         {data?.summoner?.scoreDetails?.totalScore}
                       </span>
                     </div>
+
+                    <div
+                      className={`px-2 py-1 rounded flex flex-col items-center border min-w-[76px] ${getTierBadgeClass(scoreTier)}`}
+                    >
+                      <span className="text-[10px] opacity-80">자체 티어</span>
+                      <span className="text-xs font-bold">{scoreTier || '-'}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -212,6 +287,7 @@ export default function App() {
                 <span className="text-xs text-[#A69CAC] mb-2">최근 2경기 표시</span>
                 <div className="relative w-20 h-20 flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90">
+                    <circle cx="40" cy="40" r="34" fill="transparent" stroke="#474973" strokeWidth="8" />
                     <circle
                       cx="40"
                       cy="40"
@@ -270,14 +346,14 @@ export default function App() {
               </div>
 
               <div className="p-1.5">
-                {data?.summary?.recentChampions?.length ? (
-                  data.summary.recentChampions.map((champ, idx) => (
+                {recentChampionRows.length ? (
+                  recentChampionRows.map((champ, idx) => (
                     <div
                       key={idx}
                       className="flex items-center gap-3 p-2.5 hover:bg-[#474973] rounded-lg transition-colors cursor-default"
                     >
                       <img
-                        src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/champion/${champ.name}.png`}
+                        src={`https://ddragon.leagueoflegends.com/cdn/${PROFILE_ICON_VERSION}/img/champion/${champ.name}.png`}
                         alt={champ.name}
                         className="w-8 h-8 rounded-full bg-[#474973]"
                       />
@@ -302,6 +378,7 @@ export default function App() {
                         <div className="text-[10px] text-[#A69CAC]">
                           {champ.kda} 평점
                         </div>
+                        <div className="text-[10px] text-[#A69CAC]">{safeString(champ.kda, '0.0')} 평점</div>
                       </div>
                     </div>
                   ))
@@ -315,16 +392,15 @@ export default function App() {
           </div>
 
           <div className="flex-1 flex flex-col gap-2">
-            {data?.matches?.map((match) => (
-              <MatchCard
-                key={`${match.id}-${expandedMatchId === match.id ? 'open' : 'closed'}`}
-                match={match}
-                isExpanded={expandedMatchId === match.id}
-                onToggle={() =>
-                  setExpandedMatchId((prev) => (prev === match.id ? null : match.id))
-                }
-              />
-            ))}
+            {Array.isArray(data?.matches) &&
+              data.matches.map((match) => (
+                <MatchCard
+                  key={`${match.id}-${expandedMatchId === match.id ? 'open' : 'closed'}`}
+                  match={match}
+                  isExpanded={expandedMatchId === match.id}
+                  onToggle={() => setExpandedMatchId((prev) => (prev === match.id ? null : match.id))}
+                />
+              ))}
 
             {!data?.matches?.length && (
               <div className="w-full py-10 bg-[#161B33] border border-[#474973] rounded-lg text-sm text-[#A69CAC] text-center">
