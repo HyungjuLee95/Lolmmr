@@ -859,34 +859,6 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
               <div className="bg-[#161B33] px-4 py-3 flex items-center justify-between border border-[#474973] rounded-xl">
                 <div className="flex items-center gap-2 text-xs text-[#F1DAC4]">
                   <Users className="w-4 h-4 text-[#A69CAC]" />
-              <div className="bg-[#18181b] px-4 py-3 border border-gray-800 rounded-xl grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div>
-                  <div className="text-[10px] text-gray-500">최종 변동</div>
-                  <div className={`text-sm font-bold ${getDeltaTextColor(finalDelta)}`}>
-                    {formatSigned(finalDelta, 0)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-gray-500">퍼포먼스 점수</div>
-                  <div className="text-sm font-bold text-white">{performanceScore}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-gray-500">PerfIndex</div>
-                  <div className={`text-sm font-bold ${getDeltaTextColor(perfIndex)}`}>
-                    {formatSigned(perfIndex, 2)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-gray-500">킬 관여</div>
-                  <div className="text-sm font-bold text-white">
-                    {Math.round(safeNumber(match?.metrics?.killParticipation, 0) * 100)}%
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-[#18181b] px-4 py-3 flex items-center justify-between border border-gray-800 rounded-xl">
-                <div className="flex items-center gap-2 text-xs text-gray-300">
-                  <Users className="w-4 h-4 text-purple-400" />
                   <span className="font-semibold">분석 기준: 내 플레이</span>
                 </div>
                 <div className="text-[11px] text-[#8B86A3]">

@@ -1,22 +1,24 @@
 package com.example.mmrtest.service;
 
-import com.example.mmrtest.dto.MatchSummary;
-import com.example.mmrtest.dto.ScoreResult;
-import com.example.mmrtest.dto.SummonerDTO;
-import com.example.mmrtest.entity.SummonerHistory;
-import com.example.mmrtest.repository.SummonerHistoryRepository;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriUtils;
 
 import java.net.URI;
@@ -50,10 +52,8 @@ public class SummonerService {
     @Autowired
     private RiotMatchService riotMatchService;
 
-    @Value("${riot.api.key}")
-    private String apiKey;
-
-    private final RestTemplate restTemplate = new RestTemplate();
+    @Autowired
+    private RiotApiClient riotApiClient;
     private final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
     /**
@@ -100,33 +100,11 @@ public class SummonerService {
     }
 
     private <T> T riotGet(String url, Class<T> responseType) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Riot-Token", apiKey);
-        headers.set("User-Agent",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36");
-        headers.set("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7");
-        headers.set("Accept-Charset", "application/x-www-form-urlencoded; charset=UTF-8");
-        headers.set("Origin", "https://developer.riotgames.com");
-        headers.set("Accept", "application/json");
-
-        HttpEntity<Void> entity = new HttpEntity<>(headers);
-        ResponseEntity<T> resp = restTemplate.exchange(URI.create(url), HttpMethod.GET, entity, responseType);
-        return resp.getBody();
+        return riotApiClient.get(url, responseType);
     }
 
     private <T> T riotGet(String url, ParameterizedTypeReference<T> responseType) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Riot-Token", apiKey);
-        headers.set("User-Agent",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36");
-        headers.set("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7");
-        headers.set("Accept-Charset", "application/x-www-form-urlencoded; charset=UTF-8");
-        headers.set("Origin", "https://developer.riotgames.com");
-        headers.set("Accept", "application/json");
-
-        HttpEntity<Void> entity = new HttpEntity<>(headers);
-        ResponseEntity<T> resp = restTemplate.exchange(URI.create(url), HttpMethod.GET, entity, responseType);
-        return resp.getBody();
+        return riotApiClient.get(url, responseType);
     }
 
     private Map<String, Object> riotGetMap(String url) {
