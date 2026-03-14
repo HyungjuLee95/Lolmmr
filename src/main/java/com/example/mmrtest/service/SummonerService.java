@@ -21,17 +21,27 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.util.UriUtils;
 
-import com.example.mmrtest.dto.MatchSummary;
-import com.example.mmrtest.dto.ScoreResult;
-import com.example.mmrtest.dto.SummonerDTO;
-import com.example.mmrtest.entity.SummonerHistory;
-import com.example.mmrtest.repository.SummonerHistoryRepository;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Service
 public class SummonerService {
 
-    private static final int SCORE_SAMPLE_MATCH_LIMIT = 10;
-    private static final int DISPLAY_MATCH_LIMIT = 2;
+    private static final int SCORE_SAMPLE_MATCH_LIMIT = 20;
+    private static final int DISPLAY_MATCH_LIMIT = 5;
+    private static final int SOLO_QUEUE_ID = 420;
+    private static final int FLEX_QUEUE_ID = 440;
 
     @Autowired
     private SummonerHistoryRepository historyRepository;
@@ -46,32 +56,47 @@ public class SummonerService {
     private RiotApiClient riotApiClient;
     private final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
+    /**
+     * 컨트롤러에서 standardMmr 용도로도 사용 중이므로 유지.
+     * 기존 500~2300 기반이 아니라, 현재 프로젝트의 자체 점수 구간 기준으로 맞춘다.
+     */
     public int convertTierToMmr(String tier, String rank) {
-        if (tier == null || tier.equals("UNRANKED") || tier.isEmpty()) {
+        if (tier == null || tier.isBlank() || "UNRANKED".equalsIgnoreCase(tier)) {
             return 1000;
         }
 
         Map<String, Integer> base = Map.of(
-                "IRON", 500,
-                "BRONZE", 700,
-                "SILVER", 900,
-                "GOLD", 1100,
-                "PLATINUM", 1300,
-                "EMERALD", 1500,
-                "DIAMOND", 1700,
-                "MASTER", 1900,
-                "GRANDMASTER", 2100,
-                "CHALLENGER", 2300
-        );
-        Map<String, Integer> offset = Map.of(
-                "IV", 0,
-                "III", 50,
-                "II", 100,
-                "I", 150
+                "IRON", 700,
+                "BRONZE", 900,
+                "SILVER", 1100,
+                "GOLD", 1450,
+                "PLATINUM", 1750,
+                "EMERALD", 2050,
+                "DIAMOND", 2300,
+                "MASTER", 2450,
+                "GRANDMASTER", 2550,
+                "CHALLENGER", 2650
         );
 
-        return base.getOrDefault(tier.toUpperCase(Locale.ROOT), 1000)
-                + offset.getOrDefault(rank.toUpperCase(Locale.ROOT), 0);
+        Map<String, Integer> offset = Map.of(
+                "IV", 0,
+                "III", 40,
+                "II", 80,
+                "I", 120
+        );
+
+        String normalizedTier = tier.toUpperCase(Locale.ROOT);
+        String normalizedRank = rank == null ? "" : rank.toUpperCase(Locale.ROOT);
+
+        return base.getOrDefault(normalizedTier, 1000)
+                + offset.getOrDefault(normalizedRank, 0);
+    }
+
+    private int resolveSeedScore(SummonerDTO.RankInfo rankInfo) {
+        if (rankInfo == null || rankInfo.getTier() == null || rankInfo.getTier().isBlank()) {
+            return 1000;
+        }
+        return convertTierToMmr(rankInfo.getTier(), rankInfo.getRank());
     }
 
     private <T> T riotGet(String url, Class<T> responseType) {
@@ -83,13 +108,11 @@ public class SummonerService {
     }
 
     private Map<String, Object> riotGetMap(String url) {
-        return riotGet(url, new ParameterizedTypeReference<Map<String, Object>>() {
-        });
+        return riotGet(url, new ParameterizedTypeReference<Map<String, Object>>() {});
     }
 
     private List<Map<String, Object>> riotGetListOfMaps(String url) {
-        List<Map<String, Object>> response = riotGet(url, new ParameterizedTypeReference<List<Map<String, Object>>>() {
-        });
+        List<Map<String, Object>> response = riotGet(url, new ParameterizedTypeReference<List<Map<String, Object>>>() {});
         return response == null ? Collections.emptyList() : response;
     }
 
@@ -188,16 +211,20 @@ public class SummonerService {
 
         if (needSolo && needFlex) {
             CompletableFuture<List<String>> soloIdsFuture = CompletableFuture.supplyAsync(
-                    () -> riotMatchService.getMatchIds(puuid, 420, SCORE_SAMPLE_MATCH_LIMIT), executorService);
+                    () -> riotMatchService.getMatchIds(puuid, SOLO_QUEUE_ID, SCORE_SAMPLE_MATCH_LIMIT),
+                    executorService
+            );
             CompletableFuture<List<String>> flexIdsFuture = CompletableFuture.supplyAsync(
-                    () -> riotMatchService.getMatchIds(puuid, 440, SCORE_SAMPLE_MATCH_LIMIT), executorService);
+                    () -> riotMatchService.getMatchIds(puuid, FLEX_QUEUE_ID, SCORE_SAMPLE_MATCH_LIMIT),
+                    executorService
+            );
 
             soloMatchIds = soloIdsFuture.join();
             flexMatchIds = flexIdsFuture.join();
         } else if (needSolo) {
-            soloMatchIds = riotMatchService.getMatchIds(puuid, 420, SCORE_SAMPLE_MATCH_LIMIT);
+            soloMatchIds = riotMatchService.getMatchIds(puuid, SOLO_QUEUE_ID, SCORE_SAMPLE_MATCH_LIMIT);
         } else if (needFlex) {
-            flexMatchIds = riotMatchService.getMatchIds(puuid, 440, SCORE_SAMPLE_MATCH_LIMIT);
+            flexMatchIds = riotMatchService.getMatchIds(puuid, FLEX_QUEUE_ID, SCORE_SAMPLE_MATCH_LIMIT);
         }
 
         final List<String> resolvedSoloMatchIds = soloMatchIds;
@@ -208,20 +235,27 @@ public class SummonerService {
 
         if (needSolo && needFlex) {
             CompletableFuture<List<MatchSummary>> soloDetailsFuture = CompletableFuture.supplyAsync(
-                    () -> riotMatchService.getMatchSummaries(puuid, resolvedSoloMatchIds, 420), executorService);
+                    () -> riotMatchService.getMatchSummaries(puuid, resolvedSoloMatchIds, SOLO_QUEUE_ID),
+                    executorService
+            );
             CompletableFuture<List<MatchSummary>> flexDetailsFuture = CompletableFuture.supplyAsync(
-                    () -> riotMatchService.getMatchSummaries(puuid, resolvedFlexMatchIds, 440), executorService);
+                    () -> riotMatchService.getMatchSummaries(puuid, resolvedFlexMatchIds, FLEX_QUEUE_ID),
+                    executorService
+            );
 
             soloMatchDetails = soloDetailsFuture.join();
             flexMatchDetails = flexDetailsFuture.join();
         } else if (needSolo) {
-            soloMatchDetails = riotMatchService.getMatchSummaries(puuid, resolvedSoloMatchIds, 420);
+            soloMatchDetails = riotMatchService.getMatchSummaries(puuid, resolvedSoloMatchIds, SOLO_QUEUE_ID);
         } else if (needFlex) {
-            flexMatchDetails = riotMatchService.getMatchSummaries(puuid, resolvedFlexMatchIds, 440);
+            flexMatchDetails = riotMatchService.getMatchSummaries(puuid, resolvedFlexMatchIds, FLEX_QUEUE_ID);
         }
 
-        ScoreResult soloScoreResult = scoreEngine.calculateScore(soloMatchDetails, 1000);
-        ScoreResult flexScoreResult = scoreEngine.calculateScore(flexMatchDetails, 1000);
+        int soloSeedScore = resolveSeedScore(currentSummoner.getSoloRank());
+        int flexSeedScore = resolveSeedScore(currentSummoner.getFlexRank());
+
+        ScoreResult soloScoreResult = scoreEngine.calculateScore(soloMatchDetails, soloSeedScore);
+        ScoreResult flexScoreResult = scoreEngine.calculateScore(flexMatchDetails, flexSeedScore);
 
         int soloLpChange = calculateSoloLpChange(currentSummoner, puuid);
         int flexLpChange = 0;

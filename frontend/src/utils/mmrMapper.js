@@ -1,6 +1,6 @@
 import { MOCK_DATA, QUEUE_LABEL } from '../data/mmrMockData';
 
-const RECENT_MATCH_LIMIT = 2;
+//const RECENT_MATCH_LIMIT = 2;
 
 const RESULT_META = {
   WIN: {
@@ -21,6 +21,22 @@ const RESULT_META = {
   },
 };
 
+const safeNumber = (value, fallback = 0) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const safeString = (value, fallback = '') => {
+  if (value === null || value === undefined) return fallback;
+  const text = String(value);
+  return text.trim() ? text : fallback;
+};
+
+const toFixedString = (value, digits = 1, fallback = '0.0') => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toFixed(digits) : fallback;
+};
+
 const normalizeResultType = (resultType, win) => {
   if (typeof resultType === 'string' && RESULT_META[resultType]) {
     return resultType;
@@ -29,9 +45,7 @@ const normalizeResultType = (resultType, win) => {
 };
 
 const isCountedResult = (resultType) => resultType === 'WIN' || resultType === 'LOSS';
-
 const isWinResult = (resultType) => resultType === 'WIN';
-
 const getResultMeta = (resultType) => RESULT_META[resultType] || RESULT_META.INVALID;
 
 const normalizePosition = (position) => {
@@ -81,14 +95,15 @@ const buildEmptyOverview = (resultType) => {
 };
 
 export const formatDuration = (minutes) => {
-  const safeMinutes = Number.isFinite(minutes) ? minutes : 0;
+  const safeMinutes = safeNumber(minutes, 0);
   const m = Math.max(0, Math.floor(safeMinutes));
   return `${String(m).padStart(2, '0')}:00`;
 };
 
 export const formatTimeAgo = (timestamp) => {
   if (!timestamp) return '방금 전';
-  const diffMs = Date.now() - Number(timestamp);
+
+  const diffMs = Date.now() - safeNumber(timestamp, 0);
   if (!Number.isFinite(diffMs) || diffMs < 0) return '방금 전';
 
   const diffMin = Math.floor(diffMs / 60000);
@@ -118,9 +133,9 @@ const buildVisibleSummary = (matchDetails = []) => {
     (match) => normalizeResultType(match?.resultType, match?.win) === 'INVALID'
   ).length;
 
-  const totalKills = countedMatches.reduce((sum, match) => sum + (match?.kills || 0), 0);
-  const totalDeaths = countedMatches.reduce((sum, match) => sum + (match?.deaths || 0), 0);
-  const totalAssists = countedMatches.reduce((sum, match) => sum + (match?.assists || 0), 0);
+  const totalKills = countedMatches.reduce((sum, match) => sum + safeNumber(match?.kills, 0), 0);
+  const totalDeaths = countedMatches.reduce((sum, match) => sum + safeNumber(match?.deaths, 0), 0);
+  const totalAssists = countedMatches.reduce((sum, match) => sum + safeNumber(match?.assists, 0), 0);
 
   const winRate =
     countedMatches.length > 0 ? Math.round((wins * 100) / countedMatches.length) : 0;
@@ -170,9 +185,9 @@ export const buildRecentChampions = (matchDetails = []) => {
         row.wins += 1;
       }
 
-      row.kills += match?.kills || 0;
-      row.deaths += match?.deaths || 0;
-      row.assists += match?.assists || 0;
+      row.kills += safeNumber(match?.kills, 0);
+      row.deaths += safeNumber(match?.deaths, 0);
+      row.assists += safeNumber(match?.assists, 0);
     });
 
   return Array.from(stats.values())
@@ -192,31 +207,137 @@ export const buildRecentChampions = (matchDetails = []) => {
     });
 };
 
+const buildMatchScoring = (match) => ({
+  baseDelta: safeNumber(match?.baseDelta, 0),
+  performanceDelta: safeNumber(match?.performanceDelta, 0),
+  finalDelta: safeNumber(match?.finalDelta, 0),
+  performanceScore: safeNumber(match?.performanceScore, 0),
+  perfIndex: safeNumber(match?.perfIndex, 0),
+  growthScore: safeNumber(match?.growthScore, 0),
+  teamplayScore: safeNumber(match?.teamplayScore, 0),
+  efficiencyScore: safeNumber(match?.efficiencyScore, 0),
+  survivalScore: safeNumber(match?.survivalScore, 0),
+  scoreTier: safeString(match?.scoreTier, ''),
+});
+
+const buildMatchMetrics = (match) => ({
+  killParticipation: safeNumber(match?.killParticipation, 0),
+  damageShare: safeNumber(match?.damageShare, 0),
+  damageConversion: safeNumber(match?.damageConversion, 0),
+  visionPerMinute: safeNumber(match?.visionPerMinute, 0),
+  goldPerMinute: safeNumber(match?.goldPerMinute, 0),
+  csPerMinute: safeNumber(match?.csPerMinute, 0),
+  timeAliveRatio: safeNumber(match?.timeAliveRatio, 0),
+
+  goldDiff15: safeNumber(match?.goldDiff15, 0),
+  csDiff15: safeNumber(match?.csDiff15, 0),
+  xpDiff15: safeNumber(match?.xpDiff15, 0),
+
+  objectiveParticipationScore: safeNumber(match?.objectiveParticipationScore, 0),
+  throwDeathPenalty: safeNumber(match?.throwDeathPenalty, 0),
+
+  teamKills: safeNumber(match?.teamKills, 0),
+  teamGoldEarned: safeNumber(match?.teamGoldEarned, 0),
+  teamDamageToChampions: safeNumber(match?.teamDamageToChampions, 0),
+
+  visionScore: safeNumber(match?.visionScore, 0),
+  controlWardsPlaced: safeNumber(match?.controlWardsPlaced, 0),
+  wardsPlaced: safeNumber(match?.wardsPlaced, 0),
+  wardsKilled: safeNumber(match?.wardsKilled, 0),
+  totalTimeSpentDead: safeNumber(match?.totalTimeSpentDead, 0),
+
+  damageToChampions: safeNumber(match?.damageToChampions, 0),
+  damageToObjectives: safeNumber(match?.damageToObjectives, 0),
+  damageToTurrets: safeNumber(match?.damageToTurrets, 0),
+
+  championLevel: safeNumber(match?.championLevel, 0),
+  leaver: Boolean(match?.leaver),
+});
+
+const buildScoreDetails = (scoreResult = {}) => {
+  const totalScoreRaw =
+    scoreResult?.totalScore ?? scoreResult?.currentScore ?? scoreResult?.baseScore ?? 0;
+
+  return {
+    totalScore: toFixedString(totalScoreRaw, 1, '0.0'),
+    currentScore: safeNumber(scoreResult?.currentScore, 0),
+    baseScore: safeNumber(scoreResult?.baseScore, 0),
+    grade: safeString(scoreResult?.grade, 'C'),
+    scoreTier: safeString(scoreResult?.scoreTier, ''),
+    sampleCount: safeNumber(scoreResult?.sampleCount, 0),
+    countedGames: safeNumber(scoreResult?.countedGames, 0),
+    excludedCount: safeNumber(scoreResult?.excludedCount, 0),
+    remakeCount: safeNumber(scoreResult?.remakeCount, 0),
+    invalidCount: safeNumber(scoreResult?.invalidCount, 0),
+
+    averageDelta: safeNumber(scoreResult?.averageDelta, 0),
+    averagePerformance: safeNumber(scoreResult?.averagePerformance, 0),
+    averagePerfIndex: safeNumber(scoreResult?.averagePerfIndex, 0),
+    averageBaseDelta: safeNumber(scoreResult?.averageBaseDelta, 0),
+    averagePerformanceDelta: safeNumber(scoreResult?.averagePerformanceDelta, 0),
+
+    scoreHistory: Array.isArray(scoreResult?.scoreHistory) ? scoreResult.scoreHistory : [],
+    scoreDeltaHistory: Array.isArray(scoreResult?.scoreDeltaHistory)
+      ? scoreResult.scoreDeltaHistory
+      : [],
+    performanceHistory: Array.isArray(scoreResult?.performanceHistory)
+      ? scoreResult.performanceHistory
+      : [],
+    perfIndexHistory: Array.isArray(scoreResult?.perfIndexHistory)
+      ? scoreResult.perfIndexHistory
+      : [],
+    baseDeltaHistory: Array.isArray(scoreResult?.baseDeltaHistory)
+      ? scoreResult.baseDeltaHistory
+      : [],
+    performanceDeltaHistory: Array.isArray(scoreResult?.performanceDeltaHistory)
+      ? scoreResult.performanceDeltaHistory
+      : [],
+
+    roleStats: scoreResult?.roleStats || {},
+  };
+};
+
 export const toUiMatch = (match, summonerName, index, puuid) => {
   const resultType = normalizeResultType(match?.resultType, match?.win);
   const resultMeta = getResultMeta(resultType);
 
-  const kills = match?.kills || 0;
-  const deaths = match?.deaths || 0;
-  const assists = match?.assists || 0;
+  const kills = safeNumber(match?.kills, 0);
+  const deaths = safeNumber(match?.deaths, 0);
+  const assists = safeNumber(match?.assists, 0);
+
+  const scoring = buildMatchScoring(match);
+  const metrics = buildMatchMetrics(match);
 
   return {
     id: `${match?.matchId || match?.gameEndTimeStamp || Date.now()}_${index}`,
     matchId: match?.matchId,
     puuid,
     summonerName,
+    participantId: safeNumber(match?.participantId, 0),
+    myParticipantId: safeNumber(match?.participantId, 1),
+    riotId: safeString(match?.riotId, summonerName),
     win: resultType === 'WIN',
+    loss: resultType === 'LOSS',
     isRemake: resultType === 'REMAKE',
     isCountedGame: isCountedResult(resultType),
+    isInvalid: resultType === 'INVALID',
+    leaver: Boolean(match?.leaver),
+
     resultType,
-    resultLabel: match?.displayResult || resultMeta.label,
+    resultLabel: safeString(match?.displayResult, resultMeta.label),
+    resultShortLabel: resultMeta.shortLabel,
+
     gameDuration: formatDuration(match?.gameDurationMinutes),
+    gameDurationMinutes: safeNumber(match?.gameDurationMinutes, 0),
     gameType: QUEUE_LABEL[match?.queueId] || `큐 ${match?.queueId || '-'}`,
+    queueId: safeNumber(match?.queueId, 0),
     timeAgo: formatTimeAgo(match?.gameEndTimeStamp),
-    myParticipantId: 1,
+    gameEndTimeStamp: safeNumber(match?.gameEndTimeStamp, 0),
+
     teamPosition: normalizePosition(match?.teamPosition),
+
     summary: {
-      champion: match?.championName || 'Ahri',
+      champion: safeString(match?.championName, 'Ahri'),
       position: normalizePosition(match?.teamPosition),
       kills,
       deaths,
@@ -225,40 +346,56 @@ export const toUiMatch = (match, summonerName, index, puuid) => {
         deaths === 0
           ? String(kills + assists)
           : ((kills + assists) / Math.max(deaths, 1)).toFixed(2),
-      cs: match?.totalCs || 0,
-      gold: match?.goldEarned || 0,
-      items: (match?.items || []).slice(0, 6),
+      cs: safeNumber(match?.totalCs, 0),
+      gold: safeNumber(match?.goldEarned, 0),
+      items: Array.isArray(match?.items) ? match.items.slice(0, 6) : [],
+      championLevel: safeNumber(match?.championLevel, 0),
+      visionScore: safeNumber(match?.visionScore, 0),
+      damageToChampions: safeNumber(match?.damageToChampions, 0),
     },
+
+    scoring,
+    metrics,
+
     overview: buildEmptyOverview(resultType),
-    teamMembers: [],
+    teamMembers: Array.isArray(match?.teamMembers) ? match.teamMembers : [],
+    teamChamps: Array.isArray(match?.teamChamps) ? match.teamChamps : [],
   };
 };
 
-const resolveSummaryForUi = (queueData, visibleMatches) => {
+const resolveSummaryForUi = (queueData, allMatches, visibleMatches) => {
   const visibleSummary = buildVisibleSummary(visibleMatches);
   const apiSummary = queueData?.summary || {};
   const scoreResult = queueData?.scoreResult || {};
 
   return {
-    wins: Number(apiSummary.wins ?? visibleSummary.wins ?? 0),
-    losses: Number(apiSummary.losses ?? visibleSummary.losses ?? 0),
-    remakes: Number(apiSummary.remakes ?? visibleSummary.remakes ?? 0),
-    invalid: Number(apiSummary.invalid ?? visibleSummary.invalid ?? 0),
-    countedGames: Number(apiSummary.countedGames ?? visibleSummary.countedGames ?? 0),
-    totalGames: Number(apiSummary.totalGames ?? visibleSummary.totalGames ?? 0),
-    winRate: Number(apiSummary.winRate ?? visibleSummary.winRate ?? 0),
-    kda: String(apiSummary.kda ?? visibleSummary.kda ?? '0.00'),
-    displayMatchCount: Number(apiSummary.displayMatchCount ?? visibleMatches.length ?? 0),
-    scoreSampleCount: Number(
-      apiSummary.scoreSampleCount ?? scoreResult.sampleCount ?? visibleMatches.length ?? 0
+    wins: safeNumber(apiSummary.wins ?? visibleSummary.wins, 0),
+    losses: safeNumber(apiSummary.losses ?? visibleSummary.losses, 0),
+    remakes: safeNumber(apiSummary.remakes ?? visibleSummary.remakes, 0),
+    invalid: safeNumber(apiSummary.invalid ?? visibleSummary.invalid, 0),
+    countedGames: safeNumber(apiSummary.countedGames ?? visibleSummary.countedGames, 0),
+    totalGames: safeNumber(apiSummary.totalGames ?? visibleSummary.totalGames, 0),
+    winRate: safeNumber(apiSummary.winRate ?? visibleSummary.winRate, 0),
+    kda: safeString(apiSummary.kda ?? visibleSummary.kda, '0.00'),
+
+    displayMatchCount: safeNumber(
+      apiSummary.displayMatchCount ?? visibleMatches.length,
+      visibleMatches.length
     ),
-    scoreCountedGames: Number(
-      apiSummary.scoreCountedGames ?? scoreResult.countedGames ?? visibleSummary.countedGames ?? 0
+    scoreSampleCount: safeNumber(
+      apiSummary.scoreSampleCount ?? scoreResult.sampleCount ?? allMatches.length,
+      allMatches.length
     ),
-    excludedGames: Number(
-      apiSummary.excludedGames ?? scoreResult.excludedCount ?? 0
+    scoreCountedGames: safeNumber(
+      apiSummary.scoreCountedGames ?? scoreResult.countedGames ?? visibleSummary.countedGames,
+      visibleSummary.countedGames
     ),
-    recentChampions: buildRecentChampions(visibleMatches),
+    excludedGames: safeNumber(
+      apiSummary.excludedGames ?? scoreResult.excludedCount,
+      0
+    ),
+
+    recentChampions: buildRecentChampions(allMatches),
   };
 };
 
@@ -267,20 +404,17 @@ const resolveQueueData = (apiData, preferredQueue) => {
     return apiData.queues[preferredQueue] || apiData.queues.solo || apiData.queues.flex;
   }
 
-  const legacyQueueData =
-    preferredQueue === 'flex'
-      ? {
-          matchDetails: apiData?.flexMatchDetails || [],
-          scoreResult: apiData?.flexScoreResult || {},
-          summary: apiData?.flexSummary || {},
-        }
-      : {
-          matchDetails: apiData?.soloMatchDetails || [],
-          scoreResult: apiData?.soloScoreResult || {},
-          summary: apiData?.soloSummary || {},
-        };
-
-  return legacyQueueData;
+  return preferredQueue === 'flex'
+    ? {
+        matchDetails: apiData?.flexMatchDetails || [],
+        scoreResult: apiData?.flexScoreResult || {},
+        summary: apiData?.flexSummary || {},
+      }
+    : {
+        matchDetails: apiData?.soloMatchDetails || [],
+        scoreResult: apiData?.soloScoreResult || {},
+        summary: apiData?.soloSummary || {},
+      };
 };
 
 export const mapApiToUiData = (apiData, preferredQueue = 'solo') => {
@@ -289,36 +423,26 @@ export const mapApiToUiData = (apiData, preferredQueue = 'solo') => {
   }
 
   const queueData = resolveQueueData(apiData, preferredQueue);
-  const rawMatches = queueData?.matchDetails || [];
-  const visibleMatches = rawMatches.slice(0, RECENT_MATCH_LIMIT);
-  const summary = resolveSummaryForUi(queueData, visibleMatches);
-  const summonerName = apiData?.summoner?.name || 'Unknown';
+  const rawMatches = Array.isArray(queueData?.matchDetails) ? queueData.matchDetails : [];
+  const summary = resolveSummaryForUi(queueData, rawMatches, rawMatches);
+  const summonerName = safeString(apiData?.summoner?.name, 'Unknown');
+  const scoreDetails = buildScoreDetails(queueData?.scoreResult || {});
 
   return {
     summoner: {
       name: summonerName,
-      summonerLevel: apiData?.summoner?.summonerLevel || 0,
-      profileIconId: apiData?.summoner?.profileIconId || MOCK_DATA.summoner.profileIconId,
-      scoreDetails: {
-        totalScore: Number(
-          queueData?.scoreResult?.totalScore ||
-          queueData?.scoreResult?.currentScore ||
-          0
-        ).toFixed(1),
-        grade: queueData?.scoreResult?.grade || 'C',
-        sampleCount: Number(
-          queueData?.scoreResult?.sampleCount || summary.scoreSampleCount || 0
-        ),
-        countedGames: Number(
-          queueData?.scoreResult?.countedGames || summary.scoreCountedGames || 0
-        ),
-        excludedCount: Number(
-          queueData?.scoreResult?.excludedCount || summary.excludedGames || 0
-        ),
-      },
+      puuid: safeString(apiData?.summoner?.puuid, ''),
+      summonerLevel: safeNumber(apiData?.summoner?.summonerLevel, 0),
+      profileIconId: safeNumber(
+        apiData?.summoner?.profileIconId,
+        MOCK_DATA.summoner.profileIconId
+      ),
+      scoreDetails,
+      soloRank: apiData?.summoner?.soloRank || null,
+      flexRank: apiData?.summoner?.flexRank || null,
     },
     summary,
-    matches: visibleMatches.map((match, index) =>
+    matches: rawMatches.map((match, index) =>
       toUiMatch(match, summonerName, index, apiData?.summoner?.puuid)
     ),
   };
