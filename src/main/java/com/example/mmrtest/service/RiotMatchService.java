@@ -2,16 +2,9 @@ package com.example.mmrtest.service;
 
 import com.example.mmrtest.dto.MatchResultType;
 import com.example.mmrtest.dto.MatchSummary;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -26,13 +19,10 @@ public class RiotMatchService {
     private static final int FLEX_RANK_QUEUE_ID = 440;
     private static final int DEFAULT_MATCH_COUNT = 10;
 
-    private final RestTemplate restTemplate;
+    private final RiotApiClient riotApiClient;
 
-    @Value("${riot.api.key}")
-    private String riotApiKey;
-
-    public RiotMatchService() {
-        this.restTemplate = new RestTemplate();
+    public RiotMatchService(RiotApiClient riotApiClient) {
+        this.riotApiClient = riotApiClient;
     }
 
     public List<MatchSummary> fetchRecentRankedMatches(String puuid, int count) {
@@ -340,19 +330,7 @@ public class RiotMatchService {
     }
 
     private <T> T riotGet(String url, ParameterizedTypeReference<T> typeReference) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Riot-Token", riotApiKey);
-        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
-
-        HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
-        ResponseEntity<T> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                requestEntity,
-                typeReference
-        );
-
-        return response.getBody();
+        return riotApiClient.get(url, typeReference);
     }
 
     @SuppressWarnings("unchecked")
