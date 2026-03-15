@@ -1,14 +1,15 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5433}/${POSTGRES_DB:lolmmr}
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5433}/${POSTGRES_DB:postgres}
     driver-class-name: org.postgresql.Driver
-    username: ${POSTGRES_USER:lolmmr_app}
-    password: ${POSTGRES_PASSWORD:}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:CHANGE_ME_POSTGRES_PASSWORD}
 
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: validate
+      # ddl-auto: validate
+      ddl-auto: update  
     show-sql: false
     properties:
       hibernate:

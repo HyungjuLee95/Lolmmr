@@ -241,7 +241,10 @@ public class ScoreEngine {
         result.setCurrentScore(currentScore);
         result.setTotalScore(currentScore);
         result.setBaseScore(baseScore);
-        result.setGrade(gradeFromAveragePerformance(averagePerformance));
+
+        // grade는 이제 "평균 퍼포먼스 등급"이 아니라 "종합등급"으로 사용
+        result.setGrade(gradeFromOverallScore(currentScore));
+
         result.setScoreTier(tierFromScore(currentScore));
         result.setCountedGames(countedGames);
         result.setSampleCount(sortedMatches.size());
@@ -284,7 +287,7 @@ public class ScoreEngine {
         result.setCurrentScore(baseScore);
         result.setTotalScore(baseScore);
         result.setBaseScore(baseScore);
-        result.setGrade("C");
+        result.setGrade(gradeFromOverallScore(baseScore));
         result.setScoreTier(tierFromScore(baseScore));
         result.setCountedGames(0);
         result.setSampleCount(0);
@@ -406,13 +409,17 @@ public class ScoreEngine {
         return "IRON/BRONZE";
     }
 
-    private String gradeFromAveragePerformance(double averagePerformance) {
-        if (averagePerformance >= 85.0) return "S+";
-        if (averagePerformance >= 75.0) return "S";
-        if (averagePerformance >= 65.0) return "A";
-        if (averagePerformance >= 55.0) return "B";
-        if (averagePerformance >= 45.0) return "C";
-        return "D";
+    /**
+     * App 상단 카드에서 사용하는 "종합등급".
+     * 현재 내부 종합점수 체계와 맞춘다.
+     */
+    private String gradeFromOverallScore(int score) {
+        if (score >= 2200) return "S";
+        if (score >= 1900) return "A";
+        if (score >= 1600) return "B";
+        if (score >= 1300) return "C";
+        if (score >= 1000) return "D";
+        return "E";
     }
 
     private String normalizeRole(String rawRole) {

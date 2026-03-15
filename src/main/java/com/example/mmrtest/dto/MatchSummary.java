@@ -1,10 +1,11 @@
 package com.example.mmrtest.dto;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MatchSummary {
-
+public class MatchSummary implements Serializable {
+    private static final long serialVersionUID = 1L;
     // ===== 기존 핵심 식별 정보 =====
     private String matchId;
     private MatchResultType resultType;

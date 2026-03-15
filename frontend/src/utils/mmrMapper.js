@@ -1,7 +1,5 @@
 import { MOCK_DATA, QUEUE_LABEL } from '../data/mmrMockData';
 
-//const RECENT_MATCH_LIMIT = 2;
-
 const RESULT_META = {
   WIN: {
     label: '승리',
@@ -81,14 +79,18 @@ const buildEmptyOverview = (resultType) => {
       isWin: resultType === 'WIN',
       hasWinner: counted,
       kills: 0,
+      deaths: 0,
       gold: '0.0k',
+      objectives: {},
       players: [],
     },
     redTeam: {
       isWin: resultType === 'LOSS',
       hasWinner: counted,
       kills: 0,
+      deaths: 0,
       gold: '0.0k',
+      objectives: {},
       players: [],
     },
   };
@@ -116,50 +118,7 @@ export const formatTimeAgo = (timestamp) => {
   return `${diffDay}일 전`;
 };
 
-const buildVisibleSummary = (matchDetails = []) => {
-  const countedMatches = matchDetails.filter((match) =>
-    isCountedResult(normalizeResultType(match?.resultType, match?.win))
-  );
-
-  const wins = countedMatches.filter((match) =>
-    isWinResult(normalizeResultType(match?.resultType, match?.win))
-  ).length;
-
-  const losses = countedMatches.length - wins;
-  const remakes = matchDetails.filter(
-    (match) => normalizeResultType(match?.resultType, match?.win) === 'REMAKE'
-  ).length;
-  const invalid = matchDetails.filter(
-    (match) => normalizeResultType(match?.resultType, match?.win) === 'INVALID'
-  ).length;
-
-  const totalKills = countedMatches.reduce((sum, match) => sum + safeNumber(match?.kills, 0), 0);
-  const totalDeaths = countedMatches.reduce((sum, match) => sum + safeNumber(match?.deaths, 0), 0);
-  const totalAssists = countedMatches.reduce((sum, match) => sum + safeNumber(match?.assists, 0), 0);
-
-  const winRate =
-    countedMatches.length > 0 ? Math.round((wins * 100) / countedMatches.length) : 0;
-
-  const kdaValue =
-    countedMatches.length === 0
-      ? 0
-      : totalDeaths === 0
-        ? totalKills + totalAssists
-        : (totalKills + totalAssists) / totalDeaths;
-
-  return {
-    wins,
-    losses,
-    remakes,
-    invalid,
-    countedGames: countedMatches.length,
-    totalGames: matchDetails.length,
-    winRate,
-    kda: kdaValue.toFixed(2),
-  };
-};
-
-export const buildRecentChampions = (matchDetails = []) => {
+const buildRecentChampions = (matchDetails = []) => {
   const stats = new Map();
 
   matchDetails
@@ -207,17 +166,59 @@ export const buildRecentChampions = (matchDetails = []) => {
     });
 };
 
+const buildVisibleSummary = (matchDetails = []) => {
+  const countedMatches = matchDetails.filter((match) =>
+    isCountedResult(normalizeResultType(match?.resultType, match?.win))
+  );
+
+  const wins = countedMatches.filter((match) =>
+    isWinResult(normalizeResultType(match?.resultType, match?.win))
+  ).length;
+
+  const losses = countedMatches.length - wins;
+  const remakes = matchDetails.filter(
+    (match) => normalizeResultType(match?.resultType, match?.win) === 'REMAKE'
+  ).length;
+  const invalid = matchDetails.filter(
+    (match) => normalizeResultType(match?.resultType, match?.win) === 'INVALID'
+  ).length;
+
+  const totalKills = countedMatches.reduce((sum, match) => sum + safeNumber(match?.kills, 0), 0);
+  const totalDeaths = countedMatches.reduce((sum, match) => sum + safeNumber(match?.deaths, 0), 0);
+  const totalAssists = countedMatches.reduce((sum, match) => sum + safeNumber(match?.assists, 0), 0);
+
+  const winRate =
+    countedMatches.length > 0 ? Math.round((wins * 100) / countedMatches.length) : 0;
+
+  const kdaValue =
+    countedMatches.length === 0
+      ? 0
+      : totalDeaths === 0
+        ? totalKills + totalAssists
+        : (totalKills + totalAssists) / totalDeaths;
+
+  return {
+    wins,
+    losses,
+    remakes,
+    invalid,
+    countedGames: countedMatches.length,
+    totalGames: matchDetails.length,
+    winRate,
+    kda: kdaValue.toFixed(2),
+  };
+};
+
 const buildMatchScoring = (match) => ({
-  baseDelta: safeNumber(match?.baseDelta, 0),
-  performanceDelta: safeNumber(match?.performanceDelta, 0),
-  finalDelta: safeNumber(match?.finalDelta, 0),
-  performanceScore: safeNumber(match?.performanceScore, 0),
-  perfIndex: safeNumber(match?.perfIndex, 0),
-  growthScore: safeNumber(match?.growthScore, 0),
-  teamplayScore: safeNumber(match?.teamplayScore, 0),
-  efficiencyScore: safeNumber(match?.efficiencyScore, 0),
-  survivalScore: safeNumber(match?.survivalScore, 0),
-  scoreTier: safeString(match?.scoreTier, ''),
+  baseDelta: safeNumber(match?.baseDelta, null),
+  performanceDelta: safeNumber(match?.performanceDelta, null),
+  finalDelta: safeNumber(match?.finalDelta, null),
+  performanceScore: safeNumber(match?.performanceScore, null),
+  perfIndex: safeNumber(match?.perfIndex, null),
+  growthScore: safeNumber(match?.growthScore, null),
+  teamplayScore: safeNumber(match?.teamplayScore, null),
+  efficiencyScore: safeNumber(match?.efficiencyScore, null),
+  survivalScore: safeNumber(match?.survivalScore, null),
 });
 
 const buildMatchMetrics = (match) => ({
@@ -363,8 +364,8 @@ export const toUiMatch = (match, summonerName, index, puuid) => {
   };
 };
 
-const resolveSummaryForUi = (queueData, allMatches, visibleMatches) => {
-  const visibleSummary = buildVisibleSummary(visibleMatches);
+const resolveSummaryForUi = (queueData, allMatches) => {
+  const visibleSummary = buildVisibleSummary(allMatches);
   const apiSummary = queueData?.summary || {};
   const scoreResult = queueData?.scoreResult || {};
 
@@ -379,8 +380,8 @@ const resolveSummaryForUi = (queueData, allMatches, visibleMatches) => {
     kda: safeString(apiSummary.kda ?? visibleSummary.kda, '0.00'),
 
     displayMatchCount: safeNumber(
-      apiSummary.displayMatchCount ?? visibleMatches.length,
-      visibleMatches.length
+      apiSummary.displayMatchCount ?? allMatches.length,
+      allMatches.length
     ),
     scoreSampleCount: safeNumber(
       apiSummary.scoreSampleCount ?? scoreResult.sampleCount ?? allMatches.length,
@@ -424,7 +425,7 @@ export const mapApiToUiData = (apiData, preferredQueue = 'solo') => {
 
   const queueData = resolveQueueData(apiData, preferredQueue);
   const rawMatches = Array.isArray(queueData?.matchDetails) ? queueData.matchDetails : [];
-  const summary = resolveSummaryForUi(queueData, rawMatches, rawMatches);
+  const summary = resolveSummaryForUi(queueData, rawMatches);
   const summonerName = safeString(apiData?.summoner?.name, 'Unknown');
   const scoreDetails = buildScoreDetails(queueData?.scoreResult || {});
 

@@ -6,6 +6,8 @@ import { MOCK_DATA } from './data/mmrMockData';
 import { mapApiToUiData } from './utils/mmrMapper';
 
 const PROFILE_ICON_VERSION = '14.3.1';
+const INITIAL_MATCH_RENDER_COUNT = 5;
+const LOAD_MORE_STEP = 5;
 
 const safeNumber = (value, fallback = 0) => {
   const n = Number(value);
@@ -43,25 +45,77 @@ const getDeltaColor = (value) => {
   return 'text-[#8B86A3]';
 };
 
-const getTierBadgeClass = (tier = '') => {
-  const normalized = String(tier).toUpperCase();
+const formatRankInfo = (rankInfo) => {
+  if (!rankInfo?.tier) {
+    return {
+      tierText: 'UNRANKED',
+      lpText: '',
+    };
+  }
 
-  if (normalized === 'DIAMOND') {
-    return 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30';
-  }
-  if (normalized === 'EMERALD') {
-    return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';
-  }
-  if (normalized === 'PLATINUM') {
-    return 'bg-sky-500/10 text-sky-300 border-sky-500/30';
-  }
-  if (normalized === 'GOLD') {
-    return 'bg-amber-500/10 text-amber-300 border-amber-500/30';
-  }
-  if (normalized === 'SILVER') {
-    return 'bg-slate-400/10 text-slate-300 border-slate-500/30';
-  }
-  return 'bg-orange-500/10 text-orange-300 border-orange-500/30';
+  const tier = String(rankInfo.tier).toUpperCase();
+  const rank = safeString(rankInfo.rank, '');
+  const lp = safeNumber(rankInfo.leaguePoints, 0);
+
+  const prettyTierMap = {
+    IRON: 'Iron',
+    BRONZE: 'Bronze',
+    SILVER: 'Silver',
+    GOLD: 'Gold',
+    PLATINUM: 'Platinum',
+    EMERALD: 'Emerald',
+    DIAMOND: 'Diamond',
+    MASTER: 'Master',
+    GRANDMASTER: 'Grandmaster',
+    CHALLENGER: 'Challenger',
+  };
+
+  return {
+    tierText: `${prettyTierMap[tier] || tier}${rank ? ` ${rank}` : ''}`,
+    lpText: `${lp} LP`,
+  };
+};
+
+const buildVisibleRecordSummary = (matches = []) => {
+  const countedMatches = matches.filter((match) => match?.isCountedGame);
+  const wins = countedMatches.filter((match) => match?.win).length;
+  const losses = countedMatches.length - wins;
+  const remakes = matches.filter((match) => match?.isRemake).length;
+  const invalid = matches.filter((match) => match?.isInvalid).length;
+
+  const totalKills = countedMatches.reduce(
+    (sum, match) => sum + safeNumber(match?.summary?.kills, 0),
+    0
+  );
+  const totalDeaths = countedMatches.reduce(
+    (sum, match) => sum + safeNumber(match?.summary?.deaths, 0),
+    0
+  );
+  const totalAssists = countedMatches.reduce(
+    (sum, match) => sum + safeNumber(match?.summary?.assists, 0),
+    0
+  );
+
+  const winRate =
+    countedMatches.length > 0 ? Math.round((wins * 100) / countedMatches.length) : 0;
+
+  const kdaValue =
+    countedMatches.length === 0
+      ? 0
+      : totalDeaths === 0
+        ? totalKills + totalAssists
+        : (totalKills + totalAssists) / totalDeaths;
+
+  return {
+    wins,
+    losses,
+    remakes,
+    invalid,
+    countedGames: countedMatches.length,
+    totalGames: matches.length,
+    winRate,
+    kda: kdaValue.toFixed(2),
+  };
 };
 
 export default function App() {
@@ -71,6 +125,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
+  const [visibleMatchCount, setVisibleMatchCount] = useState(INITIAL_MATCH_RENDER_COUNT);
 
   const fetchMmrData = useCallback(async (queryName) => {
     try {
@@ -95,6 +150,7 @@ export default function App() {
 
       setData(mapApiToUiData(response.data, 'solo'));
       setExpandedMatchId(null);
+      setVisibleMatchCount(INITIAL_MATCH_RENDER_COUNT);
       setHasSearched(true);
       return true;
     } catch (error) {
@@ -118,21 +174,37 @@ export default function App() {
     await fetchMmrData(trimmed);
   };
 
-  const getGradeColor = (grade = '') => {
-    if (grade.startsWith('S')) {
-      return 'text-[#F1DAC4] drop-shadow-[0_0_8px_rgba(241,218,196,0.45)]';
-    }
-    if (grade.startsWith('A')) return 'text-[#A69CAC]';
-    if (grade.startsWith('B')) return 'text-[#C8BAD0]';
-    return 'text-[#8B86A3]';
-  };
-
   const profileIconId = safeNumber(data?.summoner?.profileIconId, 29);
   const summonerLevel = safeNumber(data?.summoner?.summonerLevel, 0);
   const summonerName = safeString(data?.summoner?.name, 'Unknown');
-  const scoreTier = safeString(scoreDetails?.scoreTier, '');
+  const scoreDetails = data?.summoner?.scoreDetails || {};
   const averageDelta = safeNumber(scoreDetails?.averageDelta, 0);
   const averagePerfIndex = safeNumber(scoreDetails?.averagePerfIndex, 0);
+  const currentRank = formatRankInfo(data?.summoner?.soloRank);
+
+  const allMatches = useMemo(
+    () => (Array.isArray(data?.matches) ? data.matches : []),
+    [data]
+  );
+
+  const visibleMatches = useMemo(
+    () => allMatches.slice(0, visibleMatchCount),
+    [allMatches, visibleMatchCount]
+  );
+
+  const hasMoreMatches = visibleMatchCount < allMatches.length;
+  const visibleSummary = useMemo(
+    () => buildVisibleRecordSummary(visibleMatches),
+    [visibleMatches]
+  );
+
+  const sampleSummary = data?.summary || {};
+  const remakes = safeNumber(sampleSummary?.remakes, 0);
+  const invalid = safeNumber(sampleSummary?.invalid, 0);
+  const scoreSampleCount = safeNumber(
+    sampleSummary?.scoreSampleCount,
+    scoreDetails?.sampleCount || allMatches.length
+  );
 
   const recentChampionRows = useMemo(
     () => (Array.isArray(data?.summary?.recentChampions) ? data.summary.recentChampions : []),
@@ -149,7 +221,8 @@ export default function App() {
           </div>
 
           <p className="text-center text-[#A69CAC] text-sm md:text-base mb-6">
-            소환사명을 검색하면 최근 2경기 표시와 최근 10경기 점수 산정 기준을 함께 보여주는 MMR 분석 대시보드로 이동합니다.
+            소환사명을 검색하면 최근 전적과 최근 {INITIAL_MATCH_RENDER_COUNT}경기 표시,
+            최근 {scoreSampleCount || 20}경기 점수 기준을 함께 보여주는 MMR 분석 화면으로 이동합니다.
           </p>
 
           <form className="relative" onSubmit={handleSearchSubmit}>
@@ -198,7 +271,8 @@ export default function App() {
             <Search className="w-4 h-4 text-[#A69CAC] absolute left-3 top-3.5" />
             <button
               type="submit"
-              className="absolute right-2 top-1.5 bg-[#474973] hover:bg-[#5C5D8A] text-[#F1DAC4] px-3 py-1 rounded text-xs font-medium"
+              disabled={isLoading}
+              className="absolute right-2 top-1.5 bg-[#474973] hover:bg-[#5C5D8A] disabled:bg-[#474973]/60 text-[#F1DAC4] px-3 py-1 rounded text-xs font-medium"
             >
               {isLoading ? '검색중' : '검색'}
             </button>
@@ -210,6 +284,7 @@ export default function App() {
               setHasSearched(false);
               setErrorMessage('');
               setExpandedMatchId(null);
+              setVisibleMatchCount(INITIAL_MATCH_RENDER_COUNT);
             }}
             className="text-xs text-[#A69CAC] border border-[#474973] rounded px-3 py-2 hover:bg-[#474973]"
           >
@@ -243,39 +318,45 @@ export default function App() {
                     className="w-20 h-20 rounded-xl border border-[#474973] object-cover"
                   />
                   <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#0D0C1D] border border-[#474973] text-[10px] px-2 py-0.5 rounded-full text-[#A69CAC] whitespace-nowrap">
-                    LV {data?.summoner?.summonerLevel}
+                    LV {summonerLevel}
                   </div>
                 </div>
 
-                <div>
-                  <h1 className="text-xl font-bold text-[#F1DAC4] mb-2">
-                    {data?.summoner?.name}
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-xl font-bold text-[#F1DAC4] mb-2 truncate">
+                    {summonerName}
                   </h1>
 
-                  <div className="flex gap-2">
-                    <div className="bg-[#474973] px-2 py-1 rounded flex flex-col items-center border border-[#A69CAC]/40">
-                      <span className="text-[10px] text-[#A69CAC]">자체 평가</span>
+                  <div className="flex flex-wrap gap-2">
+                    <div className="bg-[#474973] px-2 py-1 rounded flex flex-col items-center border border-[#A69CAC]/40 min-w-[82px]">
+                      <span className="text-[10px] text-[#A69CAC]">현티어</span>
+                      <span className="text-sm font-bold text-[#F1DAC4]">{currentRank.tierText}</span>
+                      <span className="text-[10px] text-[#A69CAC]">{currentRank.lpText}</span>
+                    </div>
+
+                    <div className="bg-[#474973] px-2 py-1 rounded flex flex-col items-center border border-[#A69CAC]/40 min-w-[78px]">
+                      <span className="text-[10px] text-[#A69CAC]">기준점수</span>
+                      <span className="text-sm font-bold text-[#F1DAC4]">
+                        {safeNumber(scoreDetails?.baseScore, 0)}
+                      </span>
+                    </div>
+
+                    <div className="bg-[#474973] px-2 py-1 rounded flex flex-col items-center border border-[#A69CAC]/40 min-w-[78px]">
+                      <span className="text-[10px] text-[#A69CAC]">종합점수</span>
+                      <span className="text-sm font-bold text-[#F1DAC4]">
+                        {safeString(scoreDetails?.totalScore, '0.0')}
+                      </span>
+                    </div>
+
+                    <div className="bg-[#474973] px-2 py-1 rounded flex flex-col items-center border border-[#A69CAC]/40 min-w-[82px]">
+                      <span className="text-[10px] text-[#A69CAC]">종합등급</span>
                       <span
                         className={`text-sm font-black ${getGradeColor(
-                          data?.summoner?.scoreDetails?.grade || ''
+                          safeString(scoreDetails?.grade, 'C')
                         )}`}
                       >
-                        {data?.summoner?.scoreDetails?.grade}
+                        {safeString(scoreDetails?.grade, 'C')}
                       </span>
-                    </div>
-
-                    <div className="bg-[#474973] px-2 py-1 rounded flex flex-col items-center border border-[#A69CAC]/40">
-                      <span className="text-[10px] text-[#A69CAC]">종합 점수</span>
-                      <span className="text-sm font-bold text-[#F1DAC4]">
-                        {data?.summoner?.scoreDetails?.totalScore}
-                      </span>
-                    </div>
-
-                    <div
-                      className={`px-2 py-1 rounded flex flex-col items-center border min-w-[76px] ${getTierBadgeClass(scoreTier)}`}
-                    >
-                      <span className="text-[10px] opacity-80">자체 티어</span>
-                      <span className="text-xs font-bold">{scoreTier || '-'}</span>
                     </div>
                   </div>
                 </div>
@@ -284,7 +365,9 @@ export default function App() {
 
             <div className="bg-[#161B33] rounded-xl p-5 border border-[#474973] flex items-center justify-between">
               <div className="flex flex-col items-center">
-                <span className="text-xs text-[#A69CAC] mb-2">최근 2경기 표시</span>
+                <span className="text-xs text-[#A69CAC] mb-2">
+                  현재 {visibleMatches.length}경기 표시
+                </span>
                 <div className="relative w-20 h-20 flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90">
                     <circle cx="40" cy="40" r="34" fill="transparent" stroke="#474973" strokeWidth="8" />
@@ -293,30 +376,22 @@ export default function App() {
                       cy="40"
                       r="34"
                       fill="transparent"
-                      stroke="#474973"
-                      strokeWidth="8"
-                    />
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="34"
-                      fill="transparent"
                       stroke="#A69CAC"
                       strokeWidth="8"
-                      strokeDasharray={`${((data?.summary?.winRate || 0) / 100) * 213} 213`}
+                      strokeDasharray={`${(visibleSummary.winRate / 100) * 213} 213`}
                     />
                   </svg>
 
                   <div className="absolute flex flex-col items-center">
                     <span className="text-sm font-bold text-[#F1DAC4]">
-                      {data?.summary?.winRate}%
+                      {visibleSummary.winRate}%
                     </span>
                     <span className="text-[10px] text-[#A69CAC]">
-                      {data?.summary?.wins}승 {data?.summary?.losses}패
+                      {visibleSummary.wins}승 {visibleSummary.losses}패
                     </span>
-                    {remakes > 0 && (
+                    {visibleSummary.remakes > 0 && (
                       <span className="text-[10px] text-[#F1DAC4] mt-0.5">
-                        다시하기 {remakes}회
+                        다시하기 {visibleSummary.remakes}회
                       </span>
                     )}
                   </div>
@@ -328,14 +403,51 @@ export default function App() {
               <div className="flex flex-col justify-center text-center">
                 <span className="text-xs text-[#A69CAC] mb-1">KDA 평점</span>
                 <div className="text-xl font-bold text-[#F1DAC4]">
-                  {data?.summary?.kda}
+                  {visibleSummary.kda}
                 </div>
-                <div className="text-[10px] text-[#A69CAC]/80 mt-1">점수는 최근 10경기 기준</div>
+                <div className="text-[10px] text-[#A69CAC]/80 mt-1">
+                  점수는 최근 {scoreSampleCount}경기 기준
+                </div>
                 {(remakes > 0 || invalid > 0) && (
                   <div className="text-[10px] text-[#F1DAC4] mt-1">
                     다시하기/제외 {remakes + invalid}경기
                   </div>
                 )}
+              </div>
+            </div>
+
+            <div className="bg-[#161B33] rounded-xl border border-[#474973] p-4">
+              <div className="text-xs font-bold text-[#F1DAC4] mb-3">최근 점수 흐름</div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-[#474973] rounded-lg border border-[#A69CAC]/30 p-3">
+                  <div className="text-[10px] text-[#A69CAC] mb-1">평균 점수 변동</div>
+                  <div className={`text-lg font-bold ${getDeltaColor(averageDelta)}`}>
+                    {formatSignedNumber(averageDelta, 1)}
+                  </div>
+                </div>
+
+                <div className="bg-[#474973] rounded-lg border border-[#A69CAC]/30 p-3">
+                  <div className="text-[10px] text-[#A69CAC] mb-1">평균 퍼포먼스</div>
+                  <div className="text-lg font-bold text-[#F1DAC4]">
+                    {safeNumber(scoreDetails?.averagePerformance, 0).toFixed(1)}
+                  </div>
+                </div>
+
+                <div className="bg-[#474973] rounded-lg border border-[#A69CAC]/30 p-3">
+                  <div className="text-[10px] text-[#A69CAC] mb-1">평균 PerfIndex</div>
+                  <div className={`text-lg font-bold ${getDeltaColor(averagePerfIndex)}`}>
+                    {formatSignedNumber(averagePerfIndex, 2)}
+                  </div>
+                </div>
+
+                <div className="bg-[#474973] rounded-lg border border-[#A69CAC]/30 p-3">
+                  <div className="text-[10px] text-[#A69CAC] mb-1">집계 경기 수</div>
+                  <div className="text-lg font-bold text-[#F1DAC4]">
+                    {safeNumber(scoreDetails?.countedGames, 0)}
+                    <span className="text-xs text-[#A69CAC] ml-1">/ {scoreSampleCount}</span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -349,7 +461,7 @@ export default function App() {
                 {recentChampionRows.length ? (
                   recentChampionRows.map((champ, idx) => (
                     <div
-                      key={idx}
+                      key={`${champ.name}-${idx}`}
                       className="flex items-center gap-3 p-2.5 hover:bg-[#474973] rounded-lg transition-colors cursor-default"
                     >
                       <img
@@ -358,8 +470,8 @@ export default function App() {
                         className="w-8 h-8 rounded-full bg-[#474973]"
                       />
 
-                      <div className="flex-1">
-                        <div className="text-sm font-semibold text-[#F1DAC4] leading-tight">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-[#F1DAC4] leading-tight truncate">
                           {champ.name}
                         </div>
                         <div className="text-[10px] text-[#A69CAC] mt-0.5">
@@ -370,15 +482,14 @@ export default function App() {
                       <div className="text-right">
                         <div
                           className={`text-sm font-semibold ${
-                            champ.winRate >= 60 ? 'text-[#F1DAC4]' : 'text-[#A69CAC]'
+                            safeNumber(champ.winRate, 0) >= 60 ? 'text-[#F1DAC4]' : 'text-[#A69CAC]'
                           }`}
                         >
-                          {champ.winRate}%
+                          {safeNumber(champ.winRate, 0)}%
                         </div>
                         <div className="text-[10px] text-[#A69CAC]">
-                          {champ.kda} 평점
+                          {safeString(champ.kda, '0.0')} 평점
                         </div>
-                        <div className="text-[10px] text-[#A69CAC]">{safeString(champ.kda, '0.0')} 평점</div>
                       </div>
                     </div>
                   ))
@@ -392,17 +503,34 @@ export default function App() {
           </div>
 
           <div className="flex-1 flex flex-col gap-2">
-            {Array.isArray(data?.matches) &&
-              data.matches.map((match) => (
-                <MatchCard
-                  key={`${match.id}-${expandedMatchId === match.id ? 'open' : 'closed'}`}
-                  match={match}
-                  isExpanded={expandedMatchId === match.id}
-                  onToggle={() => setExpandedMatchId((prev) => (prev === match.id ? null : match.id))}
-                />
-              ))}
+            {visibleMatches.map((match) => (
+              <MatchCard
+                key={`${match.id}-${expandedMatchId === match.id ? 'open' : 'closed'}`}
+                match={match}
+                isExpanded={expandedMatchId === match.id}
+                onToggle={() =>
+                  setExpandedMatchId((prev) => (prev === match.id ? null : match.id))
+                }
+              />
+            ))}
 
-            {!data?.matches?.length && (
+            {hasMoreMatches && (
+              <div className="flex justify-center pt-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVisibleMatchCount((prev) =>
+                      Math.min(prev + LOAD_MORE_STEP, allMatches.length)
+                    )
+                  }
+                  className="px-4 py-2 rounded-lg border border-[#474973] bg-[#161B33] text-sm text-[#F1DAC4] hover:bg-[#474973] transition-colors"
+                >
+                  더보기 ({visibleMatches.length}/{allMatches.length})
+                </button>
+              </div>
+            )}
+
+            {!visibleMatches.length && (
               <div className="w-full py-10 bg-[#161B33] border border-[#474973] rounded-lg text-sm text-[#A69CAC] text-center">
                 최근 전적이 없습니다.
               </div>
