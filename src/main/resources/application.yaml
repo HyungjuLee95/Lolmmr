@@ -16,8 +16,8 @@ server:
 
 riot:
   api:
-    key: ${RIOT_API_KEY:RGAPI-deb7af05-745c-4cb8-ace8-44e8ddd69294}
-
+    key: ${RIOT_API_KEY:RGAPI-075b546c-a53b-4acd-b6a1-88404cc92c52}
+ 
 dev:
   allowlist:
     enabled: ${DEV_ALLOWLIST_ENABLED:false}

@@ -3,6 +3,7 @@ package com.example.mmrtest.service;
 import com.example.mmrtest.dto.MatchResultType;
 import com.example.mmrtest.dto.MatchSummary;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 
@@ -22,9 +23,11 @@ public class RiotMatchService {
     private static final long OBJECTIVE_WINDOW_MS = 90_000L;
 
     private final RiotApiClient riotApiClient;
+    private final RiotMatchService self;
 
-    public RiotMatchService(RiotApiClient riotApiClient) {
+    public RiotMatchService(RiotApiClient riotApiClient, @Lazy RiotMatchService self) {
         this.riotApiClient = riotApiClient;
+        this.self = self;
     }
 
     public List<MatchSummary> fetchRecentRankedMatches(String puuid, int count) {
@@ -32,14 +35,17 @@ public class RiotMatchService {
     }
 
     public List<MatchSummary> fetchRecentRankedMatches(String puuid, int count, Integer queueFilter) {
-        List<String> matchIds = fetchMatchIds(puuid, count);
+        List<String> matchIds = queueFilter == null
+                ? Collections.emptyList()
+                : getMatchIds(puuid, queueFilter, count);
+
         if (matchIds.isEmpty()) {
             return Collections.emptyList();
         }
 
         List<MatchSummary> results = new ArrayList<>();
         for (String matchId : matchIds) {
-            MatchSummary summary = fetchMatchDetail(puuid, matchId);
+            MatchSummary summary = self.fetchMatchSummaryLight(puuid, matchId);
             if (summary == null) {
                 continue;
             }
@@ -72,16 +78,7 @@ public class RiotMatchService {
         }
 
         int safeCount = count <= 0 ? DEFAULT_MATCH_COUNT : count;
-        String url = ASIA_BASE_URL
-                + "/lol/match/v5/matches/by-puuid/"
-                + puuid
-                + "/ids?type=ranked&queue="
-                + queueId
-                + "&start=0&count="
-                + safeCount;
-
-        List<String> ids = riotGet(url, new ParameterizedTypeReference<List<String>>() {});
-        return ids == null ? Collections.emptyList() : ids;
+        return self.fetchMatchIds(puuid, queueId, safeCount);
     }
 
     public List<MatchSummary> getMatchSummaries(String puuid, List<String> matchIds, int queueId) {
@@ -91,7 +88,7 @@ public class RiotMatchService {
 
         List<MatchSummary> results = new ArrayList<>();
         for (String matchId : matchIds) {
-            MatchSummary summary = fetchMatchDetail(puuid, matchId);
+            MatchSummary summary = self.fetchMatchSummaryLight(puuid, matchId);
             if (summary == null) {
                 continue;
             }
@@ -107,35 +104,71 @@ public class RiotMatchService {
         return results;
     }
 
-    @Cacheable(value = "matchIds", key = "#puuid + ':' + #count", cacheManager = "cacheManager")
-    public List<String> fetchMatchIds(String puuid, int count) {
+    @Cacheable(
+            value = "matchIds",
+            key = "#puuid + ':' + #queueId + ':' + #count",
+            cacheManager = "cacheManager",
+            sync = true
+    )
+    public List<String> fetchMatchIds(String puuid, int queueId, int count) {
         String url = ASIA_BASE_URL
                 + "/lol/match/v5/matches/by-puuid/"
                 + puuid
-                + "/ids?type=ranked&start=0&count="
+                + "/ids?type=ranked&queue="
+                + queueId
+                + "&start=0&count="
                 + count;
 
         List<String> ids = riotGet(url, new ParameterizedTypeReference<List<String>>() {});
         return ids == null ? Collections.emptyList() : ids;
     }
 
-    @Cacheable(value = "matchDetail", key = "#matchId + ':' + #puuid", cacheManager = "cacheManager")
-    public MatchSummary fetchMatchDetail(String puuid, String matchId) {
-        Map<String, Object> rawMatch = fetchMatchRaw(matchId);
+    @Cacheable(
+            value = "matchSummaryLight",
+            key = "#matchId + ':' + #puuid",
+            cacheManager = "cacheManager",
+            sync = true
+    )
+    public MatchSummary fetchMatchSummaryLight(String puuid, String matchId) {
+        Map<String, Object> rawMatch = self.fetchMatchRaw(matchId);
         if (rawMatch == null) {
             return null;
         }
-        Map<String, Object> timelineRaw = fetchMatchTimelineRaw(matchId);
+        return buildMatchSummary(puuid, rawMatch, null);
+    }
+
+    @Cacheable(
+            value = "matchDetail",
+            key = "#matchId + ':' + #puuid",
+            cacheManager = "cacheManager",
+            sync = true
+    )
+    public MatchSummary fetchMatchDetail(String puuid, String matchId) {
+        Map<String, Object> rawMatch = self.fetchMatchRaw(matchId);
+        if (rawMatch == null) {
+            return null;
+        }
+        Map<String, Object> timelineRaw = self.fetchMatchTimelineRaw(matchId);
         return buildMatchSummary(puuid, rawMatch, timelineRaw);
     }
 
-    @Cacheable(value = "matchRaw", key = "#matchId", cacheManager = "cacheManager")
+    @Cacheable(
+            value = "matchRaw",
+            key = "#matchId",
+            cacheManager = "cacheManager",
+            sync = true
+    )
     public Map<String, Object> fetchMatchRaw(String matchId) {
         String url = ASIA_BASE_URL + "/lol/match/v5/matches/" + matchId;
         return riotGet(url, new ParameterizedTypeReference<Map<String, Object>>() {});
     }
 
-    @Cacheable(value = "matchTimelineRaw", key = "#matchId", cacheManager = "cacheManager")
+    @Cacheable(
+            value = "matchTimelineRaw",
+            key = "#matchId",
+            cacheManager = "cacheManager",
+            sync = true
+    )
     public Map<String, Object> fetchMatchTimelineRaw(String matchId) {
         String url = ASIA_BASE_URL + "/lol/match/v5/matches/" + matchId + "/timeline";
         return riotGet(url, new ParameterizedTypeReference<Map<String, Object>>() {});

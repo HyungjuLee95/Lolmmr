@@ -4,19 +4,26 @@ import com.example.mmrtest.dto.MatchSummary;
 import com.example.mmrtest.dto.ScoreResult;
 import com.example.mmrtest.dto.SummonerDTO;
 import com.example.mmrtest.entity.SummonerHistory;
+import com.example.mmrtest.entity.core.SummonerProfile;
 import com.example.mmrtest.repository.SummonerHistoryRepository;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.util.UriUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +46,10 @@ public class SummonerService {
     private static final int SCORE_SAMPLE_MATCH_LIMIT = 20;
     private static final int DISPLAY_MATCH_LIMIT = 5;
 
+    private static final Duration MMR_CACHE_TTL = Duration.ofMinutes(5);
+    private static final String MMR_CACHE_PREFIX = "mmr:v1:";
+    private static final Duration PROFILE_DB_TTL = Duration.ofMinutes(10);
+
     @Autowired
     private SummonerHistoryRepository historyRepository;
 
@@ -54,21 +65,14 @@ public class SummonerService {
     @Autowired
     private CoreSnapshotService coreSnapshotService;
 
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
     private final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
-    /**
-     * Riot 실제 티어를 내부 종합점수 시작점(seed)으로 변환.
-     * 현재 정책:
-     *  - 아이언/브론즈: 1000 이하 영역
-     *  - 실버: 1000
-     *  - 골드: 1300
-     *  - 플래티넘: 1600
-     *  - 에메랄드: 1900
-     *  - 다이아몬드: 2200
-     *
-     * 지금 단계에서는 division(IV~I) 오프셋을 주지 않고 티어 하한값만 사용한다.
-     * 이후 정교화가 필요하면 여기서만 확장하면 된다.
-     */
     public int convertTierToMmr(String tier, String rank) {
         if (tier == null || tier.isBlank() || "UNRANKED".equalsIgnoreCase(tier)) {
             return 1000;
@@ -136,6 +140,32 @@ public class SummonerService {
 
     @Cacheable(value = "summonerInfo", key = "#gameName + '-' + #tagLine", cacheManager = "cacheManager")
     public SummonerDTO getSummonerInfo(String gameName, String tagLine) {
+        Optional<SummonerProfile> profileOpt = coreSnapshotService.findSummonerProfile(gameName, tagLine);
+
+        if (profileOpt.isPresent()) {
+            SummonerProfile profile = profileOpt.get();
+            OffsetDateTime lastSync = profile.getLastProfileSyncAt();
+
+            if (lastSync != null && lastSync.isAfter(OffsetDateTime.now().minus(PROFILE_DB_TTL))) {
+                log.info("SummonerProfile DB HIT. gameName={}, tagLine={}", gameName, tagLine);
+
+                SummonerDTO dto = new SummonerDTO();
+                dto.setPuuid(profile.getPuuid());
+                dto.setName(profile.getGameName());
+                dto.setSummonerLevel(profile.getSummonerLevel() == null ? 0 : profile.getSummonerLevel());
+                dto.setProfileIconId(profile.getProfileIconId() == null ? 0 : profile.getProfileIconId());
+                dto.setId(profile.getSummonerId());
+                dto.setSoloRank(coreSnapshotService.findLatestRank(profile.getPuuid(), "RANKED_SOLO_5x5"));
+                dto.setFlexRank(coreSnapshotService.findLatestRank(profile.getPuuid(), "RANKED_FLEX_SR"));
+
+                return dto;
+            }
+
+            log.info("SummonerProfile DB STALE. gameName={}, tagLine={}, fallback=riot", gameName, tagLine);
+        } else {
+            log.info("SummonerProfile DB MISS. gameName={}, tagLine={}, fallback=riot", gameName, tagLine);
+        }
+
         Map<String, Object> accountResponse = getAccountByRiotId(gameName, tagLine);
 
         String puuid = (String) accountResponse.get("puuid");
@@ -193,76 +223,69 @@ public class SummonerService {
     }
 
     public Map<String, Object> getMmrAnalysis(String gameName, String tagLine, String queue) {
+        String normalizedQueue = normalizeQueue(queue);
+        String cacheKey = buildMmrCacheKey(gameName, tagLine, normalizedQueue);
+
+        Map<String, Object> cachedResult = readMmrAnalysisCache(cacheKey);
+        if (cachedResult != null) {
+            log.info("Redis MMR cache HIT. key={}", cacheKey);
+            return cachedResult;
+        }
+
+        log.info("Redis MMR cache MISS. key={}", cacheKey);
+
         SummonerDTO currentSummoner = getSummonerInfo(gameName, tagLine);
         String puuid = currentSummoner.getPuuid();
 
-        String normalizedQueue = normalizeQueue(queue);
         boolean needSolo = "solo".equals(normalizedQueue) || "both".equals(normalizedQueue);
         boolean needFlex = "flex".equals(normalizedQueue) || "both".equals(normalizedQueue);
 
-        List<String> soloMatchIds = Collections.emptyList();
-        List<String> flexMatchIds = Collections.emptyList();
+        List<MatchSummary> soloScoreSampleMatches = Collections.emptyList();
+        List<MatchSummary> flexScoreSampleMatches = Collections.emptyList();
 
         if (needSolo && needFlex) {
-            CompletableFuture<List<String>> soloIdsFuture = CompletableFuture.supplyAsync(
-                    () -> riotMatchService.getMatchIds(puuid, SOLO_QUEUE_ID, SCORE_SAMPLE_MATCH_LIMIT),
+            CompletableFuture<List<MatchSummary>> soloFuture = CompletableFuture.supplyAsync(
+                    () -> loadScoreSampleMatches(puuid, SOLO_QUEUE_ID),
                     executorService
             );
-            CompletableFuture<List<String>> flexIdsFuture = CompletableFuture.supplyAsync(
-                    () -> riotMatchService.getMatchIds(puuid, FLEX_QUEUE_ID, SCORE_SAMPLE_MATCH_LIMIT),
+            CompletableFuture<List<MatchSummary>> flexFuture = CompletableFuture.supplyAsync(
+                    () -> loadScoreSampleMatches(puuid, FLEX_QUEUE_ID),
                     executorService
             );
 
-            soloMatchIds = soloIdsFuture.join();
-            flexMatchIds = flexIdsFuture.join();
+            soloScoreSampleMatches = soloFuture.join();
+            flexScoreSampleMatches = flexFuture.join();
         } else if (needSolo) {
-            soloMatchIds = riotMatchService.getMatchIds(puuid, SOLO_QUEUE_ID, SCORE_SAMPLE_MATCH_LIMIT);
+            soloScoreSampleMatches = loadScoreSampleMatches(puuid, SOLO_QUEUE_ID);
         } else if (needFlex) {
-            flexMatchIds = riotMatchService.getMatchIds(puuid, FLEX_QUEUE_ID, SCORE_SAMPLE_MATCH_LIMIT);
+            flexScoreSampleMatches = loadScoreSampleMatches(puuid, FLEX_QUEUE_ID);
         }
 
-        final List<String> resolvedSoloMatchIds = soloMatchIds;
-        final List<String> resolvedFlexMatchIds = flexMatchIds;
-
-        List<MatchSummary> soloMatchDetails = Collections.emptyList();
-        List<MatchSummary> flexMatchDetails = Collections.emptyList();
-
-        if (needSolo && needFlex) {
-            CompletableFuture<List<MatchSummary>> soloDetailsFuture = CompletableFuture.supplyAsync(
-                    () -> riotMatchService.getMatchSummaries(puuid, resolvedSoloMatchIds, SOLO_QUEUE_ID),
-                    executorService
-            );
-            CompletableFuture<List<MatchSummary>> flexDetailsFuture = CompletableFuture.supplyAsync(
-                    () -> riotMatchService.getMatchSummaries(puuid, resolvedFlexMatchIds, FLEX_QUEUE_ID),
-                    executorService
-            );
-
-            soloMatchDetails = soloDetailsFuture.join();
-            flexMatchDetails = flexDetailsFuture.join();
-        } else if (needSolo) {
-            soloMatchDetails = riotMatchService.getMatchSummaries(puuid, resolvedSoloMatchIds, SOLO_QUEUE_ID);
-        } else if (needFlex) {
-            flexMatchDetails = riotMatchService.getMatchSummaries(puuid, resolvedFlexMatchIds, FLEX_QUEUE_ID);
-        }
-
-        int soloSeedScore = resolveSeedScore(currentSummoner.getSoloRank());
-        int flexSeedScore = resolveSeedScore(currentSummoner.getFlexRank());
-
-        ScoreResult soloScoreResult = scoreEngine.calculateScore(soloMatchDetails, soloSeedScore);
-        ScoreResult flexScoreResult = scoreEngine.calculateScore(flexMatchDetails, flexSeedScore);
-
-        int soloLpChange = calculateSoloLpChange(currentSummoner, puuid);
+        int soloLpChange = needSolo ? calculateSoloLpChange(currentSummoner, puuid) : 0;
         int flexLpChange = 0;
 
-        saveSoloHistory(currentSummoner, puuid);
+        if (needSolo) {
+            saveSoloHistory(currentSummoner, puuid);
+        }
+
+        ScoreResult soloScoreResult = needSolo
+                ? scoreEngine.calculateScore(soloScoreSampleMatches, resolveSeedScore(currentSummoner.getSoloRank()))
+                : scoreEngine.calculateScore(Collections.emptyList(), 1000);
+
+        ScoreResult flexScoreResult = needFlex
+                ? scoreEngine.calculateScore(flexScoreSampleMatches, resolveSeedScore(currentSummoner.getFlexRank()))
+                : scoreEngine.calculateScore(Collections.emptyList(), 1000);
+
+        List<MatchSummary> soloDisplayMatches = limitForDisplay(soloScoreSampleMatches);
+        List<MatchSummary> flexDisplayMatches = limitForDisplay(flexScoreSampleMatches);
 
         try {
             coreSnapshotService.saveAllSnapshots(
                     gameName,
                     tagLine,
                     currentSummoner,
-                    needSolo ? soloMatchDetails : Collections.emptyList(),
-                    needFlex ? flexMatchDetails : Collections.emptyList()
+                    needSolo ? soloScoreSampleMatches : Collections.emptyList(),
+                    needFlex ? flexScoreSampleMatches : Collections.emptyList()
             );
         } catch (Exception e) {
             log.warn(
@@ -275,8 +298,8 @@ public class SummonerService {
 
         Map<String, Object> result = new HashMap<>();
         result.put("summoner", currentSummoner);
-        result.put("soloMatchDetails", soloMatchDetails);
-        result.put("flexMatchDetails", flexMatchDetails);
+        result.put("soloMatchDetails", soloDisplayMatches);
+        result.put("flexMatchDetails", flexDisplayMatches);
         result.put("soloLpChange", soloLpChange);
         result.put("flexLpChange", flexLpChange);
         result.put("soloScoreResult", soloScoreResult);
@@ -285,14 +308,56 @@ public class SummonerService {
         result.put("resolvedQueue", normalizedQueue);
 
         Map<String, Object> counts = new HashMap<>();
-        counts.put("solo", buildQueueCounts(soloMatchDetails));
-        counts.put("flex", buildQueueCounts(flexMatchDetails));
+        counts.put("solo", buildQueueCounts(soloScoreSampleMatches));
+        counts.put("flex", buildQueueCounts(flexScoreSampleMatches));
         result.put("counts", counts);
 
-        result.put("soloSummary", buildQueueSummary(soloMatchDetails));
-        result.put("flexSummary", buildQueueSummary(flexMatchDetails));
+        result.put("soloSummary", buildQueueSummary(soloScoreSampleMatches));
+        result.put("flexSummary", buildQueueSummary(flexScoreSampleMatches));
+
+        writeMmrAnalysisCache(cacheKey, result);
 
         return result;
+    }
+
+    private List<MatchSummary> loadScoreSampleMatches(String puuid, int queueId) {
+        List<MatchSummary> dbMatches = coreSnapshotService.findRecentMatchSummaries(
+                puuid,
+                queueId,
+                SCORE_SAMPLE_MATCH_LIMIT
+        );
+
+        if (dbMatches.size() >= SCORE_SAMPLE_MATCH_LIMIT) {
+            log.info("DB match summary HIT. puuid={}, queueId={}, count={}", puuid, queueId, dbMatches.size());
+            return dbMatches;
+        }
+
+        if (!dbMatches.isEmpty()) {
+            log.info(
+                    "DB match summary PARTIAL HIT. puuid={}, queueId={}, count={}, fallback=riot",
+                    puuid,
+                    queueId,
+                    dbMatches.size()
+            );
+        } else {
+            log.info("DB match summary MISS. puuid={}, queueId={}, fallback=riot", puuid, queueId);
+        }
+
+        List<String> matchIds = riotMatchService.getMatchIds(puuid, queueId, SCORE_SAMPLE_MATCH_LIMIT);
+        if (matchIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return riotMatchService.getMatchSummaries(puuid, matchIds, queueId);
+    }
+
+    private List<MatchSummary> limitForDisplay(List<MatchSummary> matches) {
+        if (matches == null || matches.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        int end = Math.min(DISPLAY_MATCH_LIMIT, matches.size());
+        return new ArrayList<>(matches.subList(0, end));
     }
 
     private Map<String, Object> buildQueueSummary(List<MatchSummary> matchDetails) {
@@ -442,5 +507,92 @@ public class SummonerService {
         history.setLeaguePoints(currentSummoner.getSoloRank().getLeaguePoints());
         history.setSearchTime(LocalDateTime.now());
         historyRepository.save(history);
+    }
+
+    private String buildMmrCacheKey(String gameName, String tagLine, String normalizedQueue) {
+        String safeGameName = StringUtils.hasText(gameName)
+                ? gameName.trim().toLowerCase(Locale.ROOT)
+                : "unknown";
+        String safeTagLine = StringUtils.hasText(tagLine)
+                ? tagLine.trim().toLowerCase(Locale.ROOT)
+                : "unknown";
+
+        return MMR_CACHE_PREFIX + safeGameName + ":" + safeTagLine + ":" + normalizedQueue;
+    }
+
+    private Map<String, Object> readMmrAnalysisCache(String cacheKey) {
+        try {
+            String cachedJson = redisTemplate.opsForValue().get(cacheKey);
+            if (!StringUtils.hasText(cachedJson)) {
+                return null;
+            }
+
+            Map<String, Object> raw = objectMapper.readValue(
+                    cachedJson,
+                    new TypeReference<Map<String, Object>>() {}
+            );
+
+            return restoreCachedAnalysisResult(raw);
+        } catch (Exception e) {
+            log.warn("Redis MMR cache read failed. key={}, cause={}", cacheKey, e.getMessage());
+            return null;
+        }
+    }
+
+    private Map<String, Object> restoreCachedAnalysisResult(Map<String, Object> raw) {
+        if (raw == null) {
+            return null;
+        }
+
+        Map<String, Object> restored = new HashMap<>(raw);
+
+        Object summonerObj = raw.get("summoner");
+        if (summonerObj != null) {
+            restored.put("summoner", objectMapper.convertValue(summonerObj, SummonerDTO.class));
+        }
+
+        Object soloMatchDetailsObj = raw.get("soloMatchDetails");
+        if (soloMatchDetailsObj != null) {
+            restored.put(
+                    "soloMatchDetails",
+                    objectMapper.convertValue(
+                            soloMatchDetailsObj,
+                            new TypeReference<List<MatchSummary>>() {}
+                    )
+            );
+        }
+
+        Object flexMatchDetailsObj = raw.get("flexMatchDetails");
+        if (flexMatchDetailsObj != null) {
+            restored.put(
+                    "flexMatchDetails",
+                    objectMapper.convertValue(
+                            flexMatchDetailsObj,
+                            new TypeReference<List<MatchSummary>>() {}
+                    )
+            );
+        }
+
+        Object soloScoreResultObj = raw.get("soloScoreResult");
+        if (soloScoreResultObj != null) {
+            restored.put("soloScoreResult", objectMapper.convertValue(soloScoreResultObj, ScoreResult.class));
+        }
+
+        Object flexScoreResultObj = raw.get("flexScoreResult");
+        if (flexScoreResultObj != null) {
+            restored.put("flexScoreResult", objectMapper.convertValue(flexScoreResultObj, ScoreResult.class));
+        }
+
+        return restored;
+    }
+
+    private void writeMmrAnalysisCache(String cacheKey, Map<String, Object> result) {
+        try {
+            String payload = objectMapper.writeValueAsString(result);
+            redisTemplate.opsForValue().set(cacheKey, payload, MMR_CACHE_TTL);
+            log.info("Redis MMR cache SET. key={}, ttlSeconds={}", cacheKey, MMR_CACHE_TTL.getSeconds());
+        } catch (Exception e) {
+            log.warn("Redis MMR cache write failed. key={}, cause={}", cacheKey, e.getMessage());
+        }
     }
 }

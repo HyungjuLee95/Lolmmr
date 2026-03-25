@@ -71,6 +71,41 @@ const normalizePosition = (position) => {
   }
 };
 
+const normalizeQueue = (queue) => {
+  return queue === 'flex' ? 'flex' : 'solo';
+};
+
+const queueLabel = (queue) => {
+  return queue === 'flex' ? '자유랭크' : '솔로랭크';
+};
+
+const inferAvailableQueuesFromResponse = (apiData) => {
+  const result = [];
+
+  if (apiData?.queues?.solo || apiData?.soloMatchDetails || apiData?.soloScoreResult) {
+    result.push('solo');
+  }
+
+  if (apiData?.queues?.flex || apiData?.flexMatchDetails || apiData?.flexScoreResult) {
+    result.push('flex');
+  }
+
+  return result.length > 0 ? result : ['solo', 'flex'];
+};
+
+const pickActiveQueue = (preferredQueue, availableQueues, apiData) => {
+  const normalized = normalizeQueue(preferredQueue);
+
+  if (availableQueues.includes(normalized)) {
+    return normalized;
+  }
+
+  if (apiData?.queues?.solo || apiData?.soloMatchDetails) return 'solo';
+  if (apiData?.queues?.flex || apiData?.flexMatchDetails) return 'flex';
+
+  return availableQueues[0] || 'solo';
+};
+
 const buildEmptyOverview = (resultType) => {
   const counted = isCountedResult(resultType);
 
@@ -364,7 +399,7 @@ export const toUiMatch = (match, summonerName, index, puuid) => {
   };
 };
 
-const resolveSummaryForUi = (queueData, allMatches) => {
+const resolveSummaryForUi = (queueData, allMatches, meta = {}) => {
   const visibleSummary = buildVisibleSummary(allMatches);
   const apiSummary = queueData?.summary || {};
   const scoreResult = queueData?.scoreResult || {};
@@ -380,11 +415,11 @@ const resolveSummaryForUi = (queueData, allMatches) => {
     kda: safeString(apiSummary.kda ?? visibleSummary.kda, '0.00'),
 
     displayMatchCount: safeNumber(
-      apiSummary.displayMatchCount ?? allMatches.length,
+      apiSummary.displayMatchCount ?? meta.displayMatchCount ?? allMatches.length,
       allMatches.length
     ),
     scoreSampleCount: safeNumber(
-      apiSummary.scoreSampleCount ?? scoreResult.sampleCount ?? allMatches.length,
+      apiSummary.scoreSampleCount ?? meta.scoreSampleCount ?? scoreResult.sampleCount ?? allMatches.length,
       allMatches.length
     ),
     scoreCountedGames: safeNumber(
@@ -401,20 +436,36 @@ const resolveSummaryForUi = (queueData, allMatches) => {
 };
 
 const resolveQueueData = (apiData, preferredQueue) => {
+  const activeQueue = normalizeQueue(preferredQueue);
+
   if (apiData?.queues) {
-    return apiData.queues[preferredQueue] || apiData.queues.solo || apiData.queues.flex;
+    return (
+      apiData.queues[activeQueue] ||
+      apiData.queues.solo ||
+      apiData.queues.flex || {
+        matchDetails: [],
+        scoreResult: {},
+        summary: {},
+        rankInfo: null,
+        counts: {},
+      }
+    );
   }
 
-  return preferredQueue === 'flex'
+  return activeQueue === 'flex'
     ? {
         matchDetails: apiData?.flexMatchDetails || [],
         scoreResult: apiData?.flexScoreResult || {},
         summary: apiData?.flexSummary || {},
+        rankInfo: apiData?.summoner?.flexRank || null,
+        counts: apiData?.flexCounts || {},
       }
     : {
         matchDetails: apiData?.soloMatchDetails || [],
         scoreResult: apiData?.soloScoreResult || {},
         summary: apiData?.soloSummary || {},
+        rankInfo: apiData?.summoner?.soloRank || null,
+        counts: apiData?.soloCounts || {},
       };
 };
 
@@ -423,11 +474,27 @@ export const mapApiToUiData = (apiData, preferredQueue = 'solo') => {
     return MOCK_DATA;
   }
 
-  const queueData = resolveQueueData(apiData, preferredQueue);
+  const availableQueues = Array.isArray(apiData?.meta?.availableQueues)
+    ? apiData.meta.availableQueues.map(normalizeQueue)
+    : inferAvailableQueuesFromResponse(apiData);
+
+  const activeQueue = pickActiveQueue(preferredQueue, availableQueues, apiData);
+  const activeQueueLabel = queueLabel(activeQueue);
+
+  const queueData = resolveQueueData(apiData, activeQueue);
   const rawMatches = Array.isArray(queueData?.matchDetails) ? queueData.matchDetails : [];
-  const summary = resolveSummaryForUi(queueData, rawMatches);
   const summonerName = safeString(apiData?.summoner?.name, 'Unknown');
   const scoreDetails = buildScoreDetails(queueData?.scoreResult || {});
+  const meta = {
+    ...(apiData?.meta || {}),
+    availableQueues,
+    activeQueue,
+    activeQueueLabel,
+    displayMatchCount: safeNumber(apiData?.meta?.displayMatchCount, 5),
+    scoreSampleCount: safeNumber(apiData?.meta?.scoreSampleCount, 20),
+    analysisMode: safeString(apiData?.meta?.analysisMode, 'light'),
+  };
+  const summary = resolveSummaryForUi(queueData, rawMatches, meta);
 
   return {
     summoner: {
@@ -441,7 +508,15 @@ export const mapApiToUiData = (apiData, preferredQueue = 'solo') => {
       scoreDetails,
       soloRank: apiData?.summoner?.soloRank || null,
       flexRank: apiData?.summoner?.flexRank || null,
+      currentRank:
+        activeQueue === 'flex'
+          ? apiData?.summoner?.flexRank || null
+          : apiData?.summoner?.soloRank || null,
     },
+    meta,
+    activeQueue,
+    activeQueueLabel,
+    availableQueues,
     summary,
     matches: rawMatches.map((match, index) =>
       toUiMatch(match, summonerName, index, apiData?.summoner?.puuid)

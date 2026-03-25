@@ -28,6 +28,8 @@ import com.example.mmrtest.service.SummonerService;
 public class SummonerController {
 
     private static final Logger log = LoggerFactory.getLogger(SummonerController.class);
+    private static final int DISPLAY_MATCH_COUNT = 5;
+    private static final int SCORE_SAMPLE_COUNT = 20;
 
     private final SummonerService summonerService;
 
@@ -89,6 +91,8 @@ public class SummonerController {
 
             Map<String, Object> queues = new HashMap<>();
 
+            Map<String, Object> counts = (Map<String, Object>) analysisResult.get("counts");
+
             Map<String, Object> soloData = new HashMap<>();
             soloData.put("matchDetails", analysisResult.get("soloMatchDetails"));
             soloData.put("lpChange", analysisResult.get("soloLpChange"));
@@ -97,7 +101,7 @@ public class SummonerController {
             soloData.put("standardMmr", summonerService.convertTierToMmr(soloTier, soloRank));
             soloData.put("scoreResult", analysisResult.get("soloScoreResult"));
             soloData.put("summary", analysisResult.get("soloSummary"));
-            soloData.put("counts", ((Map<String, Object>) analysisResult.get("counts")).get("solo"));
+            soloData.put("counts", counts.get("solo"));
             queues.put("solo", soloData);
 
             Map<String, Object> flexData = new HashMap<>();
@@ -108,7 +112,7 @@ public class SummonerController {
             flexData.put("standardMmr", summonerService.convertTierToMmr(flexTier, flexRank));
             flexData.put("scoreResult", analysisResult.get("flexScoreResult"));
             flexData.put("summary", analysisResult.get("flexSummary"));
-            flexData.put("counts", ((Map<String, Object>) analysisResult.get("counts")).get("flex"));
+            flexData.put("counts", counts.get("flex"));
             queues.put("flex", flexData);
 
             finalResponse.put("queues", queues);
@@ -116,7 +120,12 @@ public class SummonerController {
             Map<String, Object> meta = new HashMap<>();
             meta.put("requestedQueue", analysisResult.get("requestedQueue"));
             meta.put("resolvedQueue", analysisResult.get("resolvedQueue"));
-            meta.put("counts", analysisResult.get("counts"));
+            meta.put("counts", counts);
+            meta.put("analysisMode", "light");
+            meta.put("displayMatchCount", DISPLAY_MATCH_COUNT);
+            meta.put("scoreSampleCount", SCORE_SAMPLE_COUNT);
+            meta.put("availableQueues", List.of("solo", "flex"));
+            meta.put("riotId", fullRiotId);
             finalResponse.put("meta", meta);
 
             return finalResponse;

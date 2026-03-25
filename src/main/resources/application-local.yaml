@@ -1,18 +1,24 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:testdb;MODE=PostgreSQL
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5433}/${POSTGRES_DB:postgres}
+    driver-class-name: org.postgresql.Driver
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:CHANGE_ME_POSTGRES_PASSWORD}
 
   jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: update
     show-sql: true
     properties:
       hibernate:
         format_sql: true
+  
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
 
   h2:
     console:
@@ -21,12 +27,17 @@ spring:
       settings:
         trace: false
         web-allow-others: false
+  cache:
+    type: redis
+    redis:
+      time-to-live: 10m
+      cache-null-values: false
 
 dev:
   allowlist:
     enabled: false
     riotIds:
       - "guny#kr1"
-      - "욕설만쳐1#kr1"
+      - "욕설멈춰i#kr1"
       - "lune silencieuse#KR2"
       - "hideonbush#kr1"

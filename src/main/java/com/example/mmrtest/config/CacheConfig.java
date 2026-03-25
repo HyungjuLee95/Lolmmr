@@ -1,6 +1,7 @@
 package com.example.mmrtest.config;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
+import java.util.concurrent.TimeUnit;
+
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
@@ -8,7 +9,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 
-import java.util.concurrent.TimeUnit;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 @Configuration
 @EnableCaching
@@ -21,6 +22,7 @@ public class CacheConfig {
                 "summonerInfo",
                 "matchIds",
                 "matchRaw",
+                "matchSummaryLight",
                 "matchDetail",
                 "matchTimelineRaw"
         );
@@ -30,8 +32,8 @@ public class CacheConfig {
 
     Caffeine<Object, Object> caffeineCacheBuilder() {
         return Caffeine.newBuilder()
-                .initialCapacity(100)
-                .maximumSize(5000)
-                .expireAfterWrite(10, TimeUnit.MINUTES); // 10분 TTL 설정
+                .initialCapacity(200)
+                .maximumSize(10000)
+                .expireAfterWrite(15, TimeUnit.MINUTES);
     }
 }

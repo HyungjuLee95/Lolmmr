@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import MatchCard from './components/MatchCard';
 import { Flame, Search, Trophy } from './components/icons';
@@ -8,6 +8,11 @@ import { mapApiToUiData } from './utils/mmrMapper';
 const PROFILE_ICON_VERSION = '14.3.1';
 const INITIAL_MATCH_RENDER_COUNT = 5;
 const LOAD_MORE_STEP = 5;
+const DEFAULT_QUEUE = 'solo';
+const QUEUE_OPTIONS = [
+  { key: 'solo', label: '솔로랭크' },
+  { key: 'flex', label: '자유랭크' },
+];
 
 const safeNumber = (value, fallback = 0) => {
   const n = Number(value);
@@ -43,6 +48,34 @@ const getDeltaColor = (value) => {
   if (n > 0) return 'text-emerald-400';
   if (n < 0) return 'text-rose-400';
   return 'text-[#8B86A3]';
+};
+
+const normalizeQueue = (queue) => {
+  return queue === 'flex' ? 'flex' : DEFAULT_QUEUE;
+};
+
+const readInitialRouteState = () => {
+  if (typeof window === 'undefined') {
+    return { name: '', queue: DEFAULT_QUEUE };
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  return {
+    name: safeString(params.get('name'), ''),
+    queue: normalizeQueue(params.get('queue')),
+  };
+};
+
+const updateBrowserUrl = (name, queue) => {
+  if (typeof window === 'undefined') return;
+
+  const trimmedName = safeString(name, '');
+  const normalizedQueue = normalizeQueue(queue);
+  const nextUrl = trimmedName
+    ? `${window.location.pathname}?name=${encodeURIComponent(trimmedName)}&queue=${normalizedQueue}`
+    : window.location.pathname;
+
+  window.history.replaceState({}, '', nextUrl);
 };
 
 const formatRankInfo = (rankInfo) => {
@@ -119,48 +152,80 @@ const buildVisibleRecordSummary = (matches = []) => {
 };
 
 export default function App() {
-  const [searchInput, setSearchInput] = useState('');
+  const initialRouteState = useMemo(() => readInitialRouteState(), []);
+  const [searchInput, setSearchInput] = useState(initialRouteState.name);
+  const [lastSearchedName, setLastSearchedName] = useState(initialRouteState.name);
+  const [selectedQueue, setSelectedQueue] = useState(initialRouteState.queue);
+  const [rawApiData, setRawApiData] = useState(null);
   const [data, setData] = useState(MOCK_DATA);
   const [expandedMatchId, setExpandedMatchId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [hasSearched, setHasSearched] = useState(false);
+  const [hasSearched, setHasSearched] = useState(Boolean(initialRouteState.name));
   const [visibleMatchCount, setVisibleMatchCount] = useState(INITIAL_MATCH_RENDER_COUNT);
 
-  const fetchMmrData = useCallback(async (queryName) => {
-    try {
-      setIsLoading(true);
-      setErrorMessage('');
+  const applyQueueData = useCallback((apiPayload, queueKey) => {
+    const normalizedQueue = normalizeQueue(queueKey);
+    const mapped = mapApiToUiData(apiPayload, normalizedQueue);
 
-      const response = await axios.get('/api/mmr', {
-        params: {
-          name: queryName,
-          queue: 'solo',
-        },
-      });
-
-      const contentType = response.headers?.['content-type'] || '';
-      if (!contentType.includes('application/json') || typeof response.data !== 'object') {
-        throw new Error('API 응답 형식이 올바르지 않습니다. (프록시/백엔드 연결 확인)');
-      }
-
-      if (response.data?.error) {
-        throw new Error(response.data.error);
-      }
-
-      setData(mapApiToUiData(response.data, 'solo'));
-      setExpandedMatchId(null);
-      setVisibleMatchCount(INITIAL_MATCH_RENDER_COUNT);
-      setHasSearched(true);
-      return true;
-    } catch (error) {
-      console.error(error);
-      setErrorMessage(error?.message || 'API 호출 중 오류가 발생했습니다.');
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
+    setSelectedQueue(mapped?.activeQueue || normalizedQueue);
+    setData(mapped);
+    setExpandedMatchId(null);
+    setVisibleMatchCount(INITIAL_MATCH_RENDER_COUNT);
   }, []);
+
+  const fetchMmrData = useCallback(
+    async (queryName, queueKey = DEFAULT_QUEUE) => {
+      const trimmedName = safeString(queryName, '');
+      const normalizedQueue = normalizeQueue(queueKey);
+
+      if (!trimmedName) {
+        setErrorMessage('소환사명을 입력해주세요.');
+        return false;
+      }
+
+      try {
+        setIsLoading(true);
+        setErrorMessage('');
+
+        const response = await axios.get('/api/mmr', {
+          params: {
+            name: trimmedName,
+            queue: normalizedQueue,
+          },
+        });
+
+        const contentType = response.headers?.['content-type'] || '';
+        if (!contentType.includes('application/json') || typeof response.data !== 'object') {
+          throw new Error('API 응답 형식이 올바르지 않습니다. (프록시/백엔드 연결 확인)');
+        }
+
+        if (response.data?.error) {
+          throw new Error(response.data.error);
+        }
+
+        setRawApiData(response.data);
+        applyQueueData(response.data, normalizedQueue);
+        setSearchInput(trimmedName);
+        setLastSearchedName(trimmedName);
+        setHasSearched(true);
+        updateBrowserUrl(trimmedName, normalizedQueue);
+        return true;
+      } catch (error) {
+        console.error(error);
+        setErrorMessage(error?.message || 'API 호출 중 오류가 발생했습니다.');
+        return false;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [applyQueueData]
+  );
+
+  useEffect(() => {
+    if (!initialRouteState.name) return;
+    fetchMmrData(initialRouteState.name, initialRouteState.queue);
+  }, [fetchMmrData, initialRouteState]);
 
   const handleSearchSubmit = async (event) => {
     event.preventDefault();
@@ -171,7 +236,33 @@ export default function App() {
       return;
     }
 
-    await fetchMmrData(trimmed);
+    await fetchMmrData(trimmed, selectedQueue);
+  };
+
+  const handleQueueChange = (queueKey) => {
+    const normalizedQueue = normalizeQueue(queueKey);
+    setSelectedQueue(normalizedQueue);
+
+    if (rawApiData) {
+      applyQueueData(rawApiData, normalizedQueue);
+      updateBrowserUrl(lastSearchedName || searchInput, normalizedQueue);
+      return;
+    }
+
+    updateBrowserUrl(lastSearchedName || searchInput, normalizedQueue);
+  };
+
+  const handleResetSearch = () => {
+    setHasSearched(false);
+    setErrorMessage('');
+    setExpandedMatchId(null);
+    setVisibleMatchCount(INITIAL_MATCH_RENDER_COUNT);
+    setRawApiData(null);
+    setData(MOCK_DATA);
+    setLastSearchedName('');
+    setSearchInput('');
+    setSelectedQueue(DEFAULT_QUEUE);
+    updateBrowserUrl('', DEFAULT_QUEUE);
   };
 
   const profileIconId = safeNumber(data?.summoner?.profileIconId, 29);
@@ -180,7 +271,12 @@ export default function App() {
   const scoreDetails = data?.summoner?.scoreDetails || {};
   const averageDelta = safeNumber(scoreDetails?.averageDelta, 0);
   const averagePerfIndex = safeNumber(scoreDetails?.averagePerfIndex, 0);
-  const currentRank = formatRankInfo(data?.summoner?.soloRank);
+
+  const activeRankInfo =
+    data?.summoner?.currentRank ||
+    (selectedQueue === 'flex' ? data?.summoner?.flexRank : data?.summoner?.soloRank);
+
+  const currentRank = formatRankInfo(activeRankInfo);
 
   const allMatches = useMemo(
     () => (Array.isArray(data?.matches) ? data.matches : []),
@@ -203,13 +299,25 @@ export default function App() {
   const invalid = safeNumber(sampleSummary?.invalid, 0);
   const scoreSampleCount = safeNumber(
     sampleSummary?.scoreSampleCount,
-    scoreDetails?.sampleCount || allMatches.length
+    data?.meta?.scoreSampleCount ?? scoreDetails?.sampleCount ?? allMatches.length
   );
 
   const recentChampionRows = useMemo(
     () => (Array.isArray(data?.summary?.recentChampions) ? data.summary.recentChampions : []),
     [data]
   );
+
+  const availableQueues = Array.isArray(data?.availableQueues)
+    ? data.availableQueues
+    : Array.isArray(data?.meta?.availableQueues)
+      ? data.meta.availableQueues
+      : QUEUE_OPTIONS.map((option) => option.key);
+
+  const activeQueueLabel =
+    data?.activeQueueLabel ||
+    data?.meta?.activeQueueLabel ||
+    QUEUE_OPTIONS.find((option) => option.key === selectedQueue)?.label ||
+    '솔로랭크';
 
   if (!hasSearched) {
     return (
@@ -257,7 +365,9 @@ export default function App() {
         <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-2xl font-bold text-[#F1DAC4]">
             <Trophy className="w-8 h-8" />
-            <span>LOLMMR</span>
+            <span onClick={handleResetSearch} className="cursor-pointer">
+              LOLMMR
+            </span>
           </div>
 
           <form className="w-full md:w-[430px] relative" onSubmit={handleSearchSubmit}>
@@ -280,12 +390,7 @@ export default function App() {
 
           <button
             type="button"
-            onClick={() => {
-              setHasSearched(false);
-              setErrorMessage('');
-              setExpandedMatchId(null);
-              setVisibleMatchCount(INITIAL_MATCH_RENDER_COUNT);
-            }}
+            onClick={handleResetSearch}
             className="text-xs text-[#A69CAC] border border-[#474973] rounded px-3 py-2 hover:bg-[#474973]"
           >
             새 검색
@@ -327,6 +432,28 @@ export default function App() {
                     {summonerName}
                   </h1>
 
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {QUEUE_OPTIONS.map((option) => {
+                      const isActive = selectedQueue === option.key;
+                      const isAvailable = availableQueues.includes(option.key);
+
+                      return (
+                        <button
+                          key={option.key}
+                          type="button"
+                          onClick={() => handleQueueChange(option.key)}
+                          className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
+                            isActive
+                              ? 'bg-[#A69CAC] text-[#0D0C1D] border-[#A69CAC] font-semibold'
+                              : 'bg-[#1A2040] text-[#A69CAC] border-[#474973] hover:bg-[#474973]'
+                          } ${!isAvailable ? 'opacity-60' : ''}`}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
                   <div className="flex flex-wrap gap-2">
                     <div className="bg-[#474973] px-2 py-1 rounded flex flex-col items-center border border-[#A69CAC]/40 min-w-[82px]">
                       <span className="text-[10px] text-[#A69CAC]">현티어</span>
@@ -366,7 +493,7 @@ export default function App() {
             <div className="bg-[#161B33] rounded-xl p-5 border border-[#474973] flex items-center justify-between">
               <div className="flex flex-col items-center">
                 <span className="text-xs text-[#A69CAC] mb-2">
-                  현재 {visibleMatches.length}경기 표시
+                  {activeQueueLabel} {visibleMatches.length}경기 표시
                 </span>
                 <div className="relative w-20 h-20 flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90">
@@ -503,9 +630,40 @@ export default function App() {
           </div>
 
           <div className="flex-1 flex flex-col gap-2">
+            <div className="bg-[#161B33] border border-[#474973] rounded-xl p-3 flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-[#F1DAC4]">{activeQueueLabel}</div>
+                <div className="text-[11px] text-[#A69CAC]">
+                  새로고침해도 현재 소환사/큐 상태를 유지합니다.
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                {QUEUE_OPTIONS.map((option) => {
+                  const isActive = selectedQueue === option.key;
+                  const isAvailable = availableQueues.includes(option.key);
+
+                  return (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => handleQueueChange(option.key)}
+                      className={`px-3 py-2 rounded-lg text-xs border transition-colors ${
+                        isActive
+                          ? 'bg-[#A69CAC] text-[#0D0C1D] border-[#A69CAC] font-semibold'
+                          : 'bg-[#1A2040] text-[#A69CAC] border-[#474973] hover:bg-[#474973]'
+                      } ${!isAvailable ? 'opacity-60' : ''}`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {visibleMatches.map((match) => (
               <MatchCard
-                key={`${match.id}-${expandedMatchId === match.id ? 'open' : 'closed'}`}
+                key={`${selectedQueue}-${match.id}-${expandedMatchId === match.id ? 'open' : 'closed'}`}
                 match={match}
                 isExpanded={expandedMatchId === match.id}
                 onToggle={() =>
@@ -532,7 +690,7 @@ export default function App() {
 
             {!visibleMatches.length && (
               <div className="w-full py-10 bg-[#161B33] border border-[#474973] rounded-lg text-sm text-[#A69CAC] text-center">
-                최근 전적이 없습니다.
+                {activeQueueLabel} 최근 전적이 없습니다.
               </div>
             )}
           </div>
