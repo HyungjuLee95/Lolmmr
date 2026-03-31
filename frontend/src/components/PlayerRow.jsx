@@ -43,8 +43,8 @@ const PlayerRow = ({ player, isBlueTeam }) => {
 
   return (
     <div
-      className={`flex items-center justify-between py-1 px-2 md:py-1.5 md:px-3 hover:bg-[#0D0C1D]/30 ${
-        player?.isMe ? 'bg-[#0D0C1D]/50 border-l-2 border-l-[#F1DAC4]' : ''
+      className={`flex items-center justify-between py-1 px-2 md:py-1.5 md:px-3 hover:bg-slate-900/30 ${
+        player?.isMe ? 'bg-slate-900/50 border-l-2 border-l-[#F1DAC4]' : ''
       }`}
     >
       <div className="flex items-center gap-2 w-[140px] md:w-[190px]">
@@ -60,32 +60,32 @@ const PlayerRow = ({ player, isBlueTeam }) => {
           <div className="flex items-center gap-1.5 min-w-0">
             <span
               className={`text-[10px] md:text-xs truncate ${
-                player?.isMe ? 'text-[#F1DAC4] font-bold' : 'text-[#A69CAC]'
+                player?.isMe ? 'text-slate-100 font-bold' : 'text-slate-400'
               }`}
             >
               {player?.name || 'Unknown'}
             </span>
 
-            <span className="px-1.5 py-0.5 rounded bg-[#474973] text-[9px] md:text-[10px] text-[#A69CAC] border border-[#A69CAC]/40 flex-shrink-0">
+            <span className="px-1.5 py-0.5 rounded bg-slate-700 text-[9px] md:text-[10px] text-slate-400 border border-slate-500/40 flex-shrink-0">
               {position}
             </span>
           </div>
 
           {player?.isMe && (
-            <span className="text-[9px] md:text-[10px] text-[#F1DAC4]">내 전적</span>
+            <span className="text-[9px] md:text-[10px] text-slate-100">내 전적</span>
           )}
         </div>
       </div>
 
       <div className="w-[80px] text-center flex flex-col">
-        <span className="text-[10px] md:text-xs font-semibold text-[#F1DAC4]">
-          {kills} / <span className="text-[#A69CAC]">{deaths}</span> / {assists}
+        <span className="text-[10px] md:text-xs font-semibold text-slate-100">
+          {kills} / <span className="text-slate-400">{deaths}</span> / {assists}
         </span>
       </div>
 
       <div className="w-[80px] md:w-[100px] flex flex-col gap-1 items-center hidden sm:flex">
-        <span className="text-[9px] md:text-[10px] text-[#A69CAC]">{damage.toLocaleString()}</span>
-        <div className="w-full bg-[#474973] h-1.5 rounded-full overflow-hidden">
+        <span className="text-[9px] md:text-[10px] text-slate-400">{damage.toLocaleString()}</span>
+        <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full ${isBlueTeam ? 'bg-[#F1DAC4]' : 'bg-[#A69CAC]'}`}
             style={{ width: `${damagePercent}%` }}
@@ -93,7 +93,7 @@ const PlayerRow = ({ player, isBlueTeam }) => {
         </div>
       </div>
 
-      <div className="w-[40px] text-center text-[10px] md:text-xs text-[#A69CAC]">{cs}</div>
+      <div className="w-[40px] text-center text-[10px] md:text-xs text-slate-400">{cs}</div>
 
       <div className="w-[120px] md:w-[150px] flex gap-0.5 justify-end">
         {Array.from({ length: 6 }).map((_, idx) => {
@@ -103,7 +103,7 @@ const PlayerRow = ({ player, isBlueTeam }) => {
             <div
               key={idx}
               className={`w-4 h-4 md:w-5 md:h-5 rounded ${
-                item === 0 ? 'bg-[#474973]/60' : 'bg-[#474973]'
+                item === 0 ? 'bg-slate-700/60' : 'bg-slate-700'
               }`}
             >
               {item !== 0 && (

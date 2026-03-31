@@ -28,7 +28,7 @@ import com.example.mmrtest.service.SummonerService;
 public class SummonerController {
 
     private static final Logger log = LoggerFactory.getLogger(SummonerController.class);
-    private static final int DISPLAY_MATCH_COUNT = 5;
+    private static final int DISPLAY_MATCH_COUNT = 20;
     private static final int SCORE_SAMPLE_COUNT = 20;
 
     private final SummonerService summonerService;

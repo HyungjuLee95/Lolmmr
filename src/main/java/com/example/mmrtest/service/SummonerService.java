@@ -44,7 +44,7 @@ public class SummonerService {
     private static final int FLEX_QUEUE_ID = 440;
 
     private static final int SCORE_SAMPLE_MATCH_LIMIT = 20;
-    private static final int DISPLAY_MATCH_LIMIT = 5;
+    private static final int DISPLAY_MATCH_LIMIT = 20;
 
     private static final Duration MMR_CACHE_TTL = Duration.ofMinutes(5);
     private static final String MMR_CACHE_PREFIX = "mmr:v1:";

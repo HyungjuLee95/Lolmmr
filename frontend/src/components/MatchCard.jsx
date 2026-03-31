@@ -29,36 +29,36 @@ import PlayerRow from './PlayerRow';
 
 const RESULT_STYLE = {
   WIN: {
-    cardBorder: 'border-l-[#A69CAC] hover:bg-[#474973]/25',
-    resultText: 'text-[#F1DAC4]',
-    blueBox: 'bg-[#161B33]/80 border border-[#474973]',
-    blueHeader: 'bg-[#474973]/35 border-b border-[#474973] text-[#F1DAC4]',
-    redBox: 'bg-[#161B33]/80 border border-[#474973]',
-    redHeader: 'bg-[#474973]/35 border-b border-[#474973] text-[#F1DAC4]',
+    cardBorder: 'border-l-indigo-500 bg-indigo-950/20 hover:bg-indigo-900/30 transition-colors',
+    resultText: 'text-indigo-400 font-extrabold',
+    blueBox: 'bg-slate-800/80 border border-slate-700',
+    blueHeader: 'bg-slate-700/35 border-b border-slate-700 text-slate-100',
+    redBox: 'bg-slate-800/80 border border-slate-700',
+    redHeader: 'bg-slate-700/35 border-b border-slate-700 text-slate-100',
   },
   LOSS: {
-    cardBorder: 'border-l-rose-500 hover:bg-rose-950/20',
-    resultText: 'text-rose-300',
-    blueBox: 'bg-[#161B33]/80 border border-[#474973]',
-    blueHeader: 'bg-[#474973]/35 border-b border-[#474973] text-[#F1DAC4]',
-    redBox: 'bg-[#161B33]/80 border border-[#474973]',
-    redHeader: 'bg-[#474973]/35 border-b border-[#474973] text-[#F1DAC4]',
+    cardBorder: 'border-l-rose-500 bg-rose-950/10 hover:bg-rose-900/20 transition-colors',
+    resultText: 'text-rose-400 font-extrabold',
+    blueBox: 'bg-slate-800/80 border border-slate-700',
+    blueHeader: 'bg-slate-700/35 border-b border-slate-700 text-slate-100',
+    redBox: 'bg-slate-800/80 border border-slate-700',
+    redHeader: 'bg-slate-700/35 border-b border-slate-700 text-slate-100',
   },
   REMAKE: {
-    cardBorder: 'border-l-yellow-500 hover:bg-yellow-950/10',
-    resultText: 'text-yellow-300',
-    blueBox: 'bg-[#161B33]/80 border border-[#474973]',
-    blueHeader: 'bg-[#474973]/35 border-b border-[#474973] text-[#F1DAC4]',
-    redBox: 'bg-[#161B33]/80 border border-[#474973]',
-    redHeader: 'bg-[#474973]/35 border-b border-[#474973] text-[#F1DAC4]',
+    cardBorder: 'border-l-slate-500 bg-slate-800 hover:bg-slate-700/40 transition-colors',
+    resultText: 'text-slate-400 font-bold',
+    blueBox: 'bg-slate-800/80 border border-slate-700',
+    blueHeader: 'bg-slate-700/35 border-b border-slate-700 text-slate-100',
+    redBox: 'bg-slate-800/80 border border-slate-700',
+    redHeader: 'bg-slate-700/35 border-b border-slate-700 text-slate-100',
   },
   INVALID: {
-    cardBorder: 'border-l-gray-500 hover:bg-[#474973]/20',
-    resultText: 'text-[#A69CAC]',
-    blueBox: 'bg-[#161B33]/80 border border-[#474973]',
-    blueHeader: 'bg-[#474973]/35 border-b border-[#474973] text-[#F1DAC4]',
-    redBox: 'bg-[#161B33]/80 border border-[#474973]',
-    redHeader: 'bg-[#474973]/35 border-b border-[#474973] text-[#F1DAC4]',
+    cardBorder: 'border-l-slate-600 bg-slate-800 hover:bg-slate-700/20 transition-colors',
+    resultText: 'text-slate-500 font-bold',
+    blueBox: 'bg-slate-800/80 border border-slate-700',
+    blueHeader: 'bg-slate-700/35 border-b border-slate-700 text-slate-100',
+    redBox: 'bg-slate-800/80 border border-slate-700',
+    redHeader: 'bg-slate-700/35 border-b border-slate-700 text-slate-100',
   },
 };
 
@@ -151,10 +151,10 @@ const formatSigned = (value, digits = 0) => {
 
 const getDeltaTextColor = (value) => {
   const n = Number(value);
-  if (!Number.isFinite(n)) return 'text-[#A69CAC]';
+  if (!Number.isFinite(n)) return 'text-slate-400';
   if (n > 0) return 'text-emerald-400';
   if (n < 0) return 'text-rose-400';
-  return 'text-[#A69CAC]';
+  return 'text-slate-400';
 };
 
 const getResultStyle = (resultType) => RESULT_STYLE[resultType] || RESULT_STYLE.INVALID;
@@ -540,16 +540,16 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
   const hasPiChip = Number.isFinite(perfIndex);
 
   return (
-    <div className="flex flex-col rounded-xl border border-[#474973] bg-[#161B33] overflow-hidden">
+    <div className="flex flex-col rounded-xl border border-slate-700 bg-slate-800 overflow-hidden">
       <div
         onClick={onToggle}
         className={`flex flex-col sm:flex-row cursor-pointer border-l-4 ${resultStyle.cardBorder} transition-colors`}
       >
-        <div className="w-full sm:w-28 p-3 flex flex-col justify-center text-xs text-[#A69CAC] border-b sm:border-b-0 sm:border-r border-[#474973]/60">
+        <div className="w-full sm:w-28 p-3 flex flex-col justify-center text-xs text-slate-400 border-b sm:border-b-0 sm:border-r border-slate-700/60">
           <div className={`font-bold mb-1 ${resultStyle.resultText}`}>{resultLabel}</div>
           <div className="mb-1">{match.gameType}</div>
           <div>{match.timeAgo}</div>
-          <div className="border-t border-[#474973] my-1" />
+          <div className="border-t border-slate-700 my-1" />
           <div>{match.gameDuration}</div>
         </div>
 
@@ -558,30 +558,30 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
             <img
               src={`https://ddragon.leagueoflegends.com/cdn/16.6.1/img/champion/${match.summary.champion}.png`}
               alt={match.summary.champion}
-              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-[#474973]"
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-slate-700"
             />
             <div className="flex flex-col gap-1 hidden sm:flex">
-              <div className="w-4 h-4 sm:w-5 sm:h-5 bg-[#474973] rounded text-[8px] flex items-center justify-center border border-[#A69CAC]/30">
+              <div className="w-4 h-4 sm:w-5 sm:h-5 bg-slate-700 rounded text-[8px] flex items-center justify-center border border-slate-500/30">
                 D
               </div>
-              <div className="w-4 h-4 sm:w-5 sm:h-5 bg-[#474973] rounded text-[8px] flex items-center justify-center border border-[#A69CAC]/30">
+              <div className="w-4 h-4 sm:w-5 sm:h-5 bg-slate-700 rounded text-[8px] flex items-center justify-center border border-slate-500/30">
                 F
               </div>
             </div>
           </div>
 
           <div className="flex flex-col items-center flex-1">
-            <div className="font-bold text-[#F1DAC4] text-base sm:text-lg tracking-wide">
-              {match.summary.kills} <span className="text-[#A69CAC] font-normal">/</span>{' '}
+            <div className="font-bold text-slate-100 text-base sm:text-lg tracking-wide">
+              {match.summary.kills} <span className="text-slate-400 font-normal">/</span>{' '}
               <span className="text-rose-300">{match.summary.deaths}</span>{' '}
-              <span className="text-[#A69CAC] font-normal">/</span> {match.summary.assists}
+              <span className="text-slate-400 font-normal">/</span> {match.summary.assists}
             </div>
 
-            <div className="text-xs text-[#A69CAC] mt-0.5">
+            <div className="text-xs text-slate-400 mt-0.5">
               {match.isCountedGame ? `${match.summary.kda} 평점` : '집계 제외 경기'}
             </div>
 
-            <div className="mt-1 text-[10px] text-[#A69CAC]/80">
+            <div className="mt-1 text-[10px] text-slate-400/80">
               {match.summary.position && match.summary.position !== 'UNKNOWN'
                 ? `${match.summary.position} · ${match.summary.champion}`
                 : match.summary.champion}
@@ -596,7 +596,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                         ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
                         : finalDelta < 0
                           ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-                          : 'bg-[#474973] border-[#A69CAC]/30 text-[#F1DAC4]'
+                          : 'bg-slate-700 border-slate-500/30 text-slate-100'
                     }`}
                   >
                     점수 {formatSigned(finalDelta, 0)}
@@ -604,7 +604,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                 )}
 
                 {hasPerfChip && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] border bg-[#474973] border-[#A69CAC]/30 text-[#F1DAC4]">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] border bg-slate-700 border-slate-500/30 text-slate-100">
                     PERF {performanceScore}
                   </span>
                 )}
@@ -616,7 +616,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                         ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
                         : perfIndex < 0
                           ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-                          : 'bg-[#474973] border-[#A69CAC]/30 text-[#F1DAC4]'
+                          : 'bg-slate-700 border-slate-500/30 text-slate-100'
                     }`}
                   >
                     PI {formatSigned(perfIndex, 2)}
@@ -626,9 +626,9 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
             )}
           </div>
 
-          <div className="flex flex-col items-center justify-center w-16 sm:w-20 text-xs text-[#A69CAC]">
+          <div className="flex flex-col items-center justify-center w-16 sm:w-20 text-xs text-slate-400">
             <div>CS {match.summary.cs}</div>
-            <div className="mt-1 text-[10px] text-[#A69CAC]/80">
+            <div className="mt-1 text-[10px] text-slate-400/80">
               {match.summary.gold ? `${Math.round(match.summary.gold / 100) / 10}k 골드` : '-'}
             </div>
           </div>
@@ -639,7 +639,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
             {(match.summary.items || []).map((item, idx) => (
               <div
                 key={idx}
-                className={`w-6 h-6 rounded ${item === 0 ? 'bg-[#474973]/40' : 'bg-[#474973]'}`}
+                className={`w-6 h-6 rounded ${item === 0 ? 'bg-slate-700/40' : 'bg-slate-700'}`}
               >
                 {item !== 0 && (
                   <img
@@ -653,20 +653,20 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
           </div>
         </div>
 
-        <div className="hidden sm:flex w-10 items-center justify-center bg-black/20 text-[#A69CAC] hover:text-[#F1DAC4] transition-colors">
+        <div className="hidden sm:flex w-10 items-center justify-center bg-black/20 text-slate-400 hover:text-slate-100 transition-colors">
           {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
         </div>
       </div>
 
       {isExpanded && (
-        <div className="border-t border-[#474973] bg-[#0D0C1D] flex flex-col animate-in slide-in-from-top-2 duration-200">
-          <div className="flex border-b border-[#474973] bg-[#161B33] overflow-x-auto">
+        <div className="border-t border-slate-700 bg-slate-900 flex flex-col animate-in slide-in-from-top-2 duration-200">
+          <div className="flex border-b border-slate-700 bg-slate-800 overflow-x-auto">
             <button
               onClick={() => setActiveTab('overview')}
               className={`px-4 py-3 text-xs md:text-sm font-semibold transition-colors border-b-2 flex items-center gap-1 md:gap-2 whitespace-nowrap ${
                 activeTab === 'overview'
-                  ? 'border-[#A69CAC] text-[#F1DAC4]'
-                  : 'border-transparent text-[#A69CAC] hover:text-[#F1DAC4]'
+                  ? 'border-slate-500 text-slate-100'
+                  : 'border-transparent text-slate-400 hover:text-slate-100'
               }`}
             >
               <Swords className="w-4 h-4" /> 종합 전적
@@ -675,8 +675,8 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
               onClick={() => setActiveTab('analysis')}
               className={`px-4 py-3 text-xs md:text-sm font-semibold transition-colors border-b-2 flex items-center gap-1 md:gap-2 whitespace-nowrap ${
                 activeTab === 'analysis'
-                  ? 'border-[#A69CAC] text-[#F1DAC4]'
-                  : 'border-transparent text-[#A69CAC] hover:text-[#F1DAC4]'
+                  ? 'border-slate-500 text-slate-100'
+                  : 'border-transparent text-slate-400 hover:text-slate-100'
               }`}
             >
               <Activity className="w-4 h-4" /> 상세 분석
@@ -686,19 +686,19 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
           {activeTab === 'overview' && (
             <div className="flex flex-col gap-3 p-3 md:p-4">
               {activeAnalysisError && (
-                <div className="bg-[#161B33] rounded-xl border border-rose-900/40 p-4 text-sm text-rose-300 text-center">
+                <div className="bg-slate-800 rounded-xl border border-rose-900/40 p-4 text-sm text-rose-300 text-center">
                   {activeAnalysisError}
                 </div>
               )}
 
               {!activeAnalysisError && isAnalysisLoading && !hasOverviewPlayers && (
-                <div className="bg-[#161B33] rounded-xl border border-[#474973] p-6 text-xs text-[#A69CAC] text-center">
+                <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 text-xs text-slate-400 text-center">
                   실제 팀 전적 데이터를 불러오는 중입니다.
                 </div>
               )}
 
               {!activeAnalysisError && !isAnalysisLoading && !hasOverviewPlayers && (
-                <div className="bg-[#161B33] rounded-xl border border-[#474973] p-6 text-xs text-[#A69CAC] text-center">
+                <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 text-xs text-slate-400 text-center">
                   종합 전적 데이터가 아직 준비되지 않았습니다.
                 </div>
               )}
@@ -711,15 +711,15 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                         <span className="text-xs font-bold">
                           {getTeamHeaderLabel(overviewData.blueTeam, '블루팀')}
                         </span>
-                        <span className="text-[10px] md:text-xs text-[#A69CAC]">
+                        <span className="text-[10px] md:text-xs text-slate-400">
                           총 킬: {overviewData.blueTeam.kills}
-                          <span className="mx-2 text-[#474973]">|</span>
+                          <span className="mx-2 text-slate-700">|</span>
                           총 데스: {overviewData.blueTeam.deaths}
-                          <span className="mx-2 text-[#474973]">|</span>
+                          <span className="mx-2 text-slate-700">|</span>
                           총 골드: {overviewData.blueTeam.gold || '0.0k'}
                         </span>
                       </div>
-                      <div className="mt-1 text-[10px] md:text-xs text-[#A69CAC]/80">
+                      <div className="mt-1 text-[10px] md:text-xs text-slate-400/80">
                         오브젝트: {formatObjectiveSummary(overviewData.blueTeam.objectives)}
                       </div>
                     </div>
@@ -736,15 +736,15 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                         <span className="text-xs font-bold">
                           {getTeamHeaderLabel(overviewData.redTeam, '레드팀')}
                         </span>
-                        <span className="text-[10px] md:text-xs text-[#A69CAC]">
+                        <span className="text-[10px] md:text-xs text-slate-400">
                           총 킬: {overviewData.redTeam.kills}
-                          <span className="mx-2 text-[#474973]">|</span>
+                          <span className="mx-2 text-slate-700">|</span>
                           총 데스: {overviewData.redTeam.deaths}
-                          <span className="mx-2 text-[#474973]">|</span>
+                          <span className="mx-2 text-slate-700">|</span>
                           총 골드: {overviewData.redTeam.gold || '0.0k'}
                         </span>
                       </div>
-                      <div className="mt-1 text-[10px] md:text-xs text-[#A69CAC]/80">
+                      <div className="mt-1 text-[10px] md:text-xs text-slate-400/80">
                         오브젝트: {formatObjectiveSummary(overviewData.redTeam.objectives)}
                       </div>
                     </div>
@@ -761,39 +761,39 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
 
           {activeTab === 'analysis' && (
             <div className="flex flex-col p-3 md:p-4 gap-4">
-              <div className="bg-[#161B33] px-4 py-3 border border-[#474973] rounded-xl grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-slate-800 px-4 py-3 border border-slate-700 rounded-xl grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
-                  <div className="text-[10px] text-[#A69CAC]">최종 변동</div>
+                  <div className="text-[10px] text-slate-400">최종 변동</div>
                   <div className={`text-sm font-bold ${getDeltaTextColor(finalDelta)}`}>
                     {Number.isFinite(finalDelta) ? formatSigned(finalDelta, 0) : '-'}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-[#A69CAC]">퍼포먼스 점수</div>
-                  <div className="text-sm font-bold text-[#F1DAC4]">
+                  <div className="text-[10px] text-slate-400">퍼포먼스 점수</div>
+                  <div className="text-sm font-bold text-slate-100">
                     {Number.isFinite(performanceScore) ? performanceScore : '-'}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-[#A69CAC]">PerfIndex</div>
+                  <div className="text-[10px] text-slate-400">PerfIndex</div>
                   <div className={`text-sm font-bold ${getDeltaTextColor(perfIndex)}`}>
                     {Number.isFinite(perfIndex) ? formatSigned(perfIndex, 2) : '-'}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-[#A69CAC]">킬 관여</div>
-                  <div className="text-sm font-bold text-[#F1DAC4]">
+                  <div className="text-[10px] text-slate-400">킬 관여</div>
+                  <div className="text-sm font-bold text-slate-100">
                     {Math.round(safeNumber(match?.metrics?.killParticipation, 0) * 100) || 0}%
                   </div>
                 </div>
               </div>
 
-              <div className="bg-[#161B33] px-4 py-3 flex items-center justify-between border border-[#474973] rounded-xl">
-                <div className="flex items-center gap-2 text-xs text-[#F1DAC4]">
-                  <Users className="w-4 h-4 text-[#A69CAC]" />
+              <div className="bg-slate-800 px-4 py-3 flex items-center justify-between border border-slate-700 rounded-xl">
+                <div className="flex items-center gap-2 text-xs text-slate-100">
+                  <Users className="w-4 h-4 text-slate-400" />
                   <span className="font-semibold">분석 기준: 내 플레이</span>
                 </div>
-                <div className="text-[11px] text-[#A69CAC]">
+                <div className="text-[11px] text-slate-400">
                   {analysisDetail?.summary?.championName || match.summary.champion}
                   {match.summary.position && match.summary.position !== 'UNKNOWN'
                     ? ` · ${match.summary.position}`
@@ -801,9 +801,9 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                 </div>
               </div>
 
-              <div className="bg-[#161B33] px-4 py-3 border border-[#474973] rounded-xl flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div className="flex items-center gap-2 text-xs text-[#F1DAC4]">
-                  <Activity className="w-4 h-4 text-[#A69CAC]" />
+              <div className="bg-slate-800 px-4 py-3 border border-slate-700 rounded-xl flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-2 text-xs text-slate-100">
+                  <Activity className="w-4 h-4 text-slate-400" />
                   <span className="font-semibold">버킷 단위</span>
                 </div>
                 <div className="flex gap-2">
@@ -813,8 +813,8 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                       onClick={() => setBucketMinutes(option)}
                       className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
                         bucketMinutes === option
-                          ? 'bg-[#474973] border-[#A69CAC]/40 text-[#F1DAC4]'
-                          : 'bg-[#0D0C1D] border-[#474973] text-[#A69CAC] hover:text-[#F1DAC4]'
+                          ? 'bg-slate-700 border-slate-500/40 text-slate-100'
+                          : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-100'
                       }`}
                     >
                       {option}분
@@ -824,21 +824,21 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
               </div>
 
               {activeAnalysisError && (
-                <div className="bg-[#161B33] rounded-xl border border-rose-900/40 p-6 text-sm text-rose-300 text-center">
+                <div className="bg-slate-800 rounded-xl border border-rose-900/40 p-6 text-sm text-rose-300 text-center">
                   {activeAnalysisError}
                 </div>
               )}
 
               {!activeAnalysisError && isAnalysisLoading && !hasFreshAnalysis && (
-                <div className="bg-[#161B33] rounded-xl border border-[#474973] p-6 text-xs text-[#A69CAC] text-center">
+                <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 text-xs text-slate-400 text-center">
                   상세 분석 데이터를 불러오는 중입니다.
                 </div>
               )}
 
               {!activeAnalysisError && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-[#161B33] rounded-xl border border-[#474973] p-3 flex flex-col items-center col-span-1">
-                    <h3 className="text-xs font-bold text-[#F1DAC4] mb-2">플레이 성향 지표</h3>
+                  <div className="bg-slate-800 rounded-xl border border-slate-700 p-3 flex flex-col items-center col-span-1">
+                    <h3 className="text-xs font-bold text-slate-100 mb-2">플레이 성향 지표</h3>
                     <div className="w-full h-40">
                       <ResponsiveContainer width="100%" height="100%">
                         <RadarChart cx="50%" cy="50%" outerRadius="65%" data={radarData}>
@@ -856,9 +856,9 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                     </div>
                   </div>
 
-                  <div className="bg-[#161B33] rounded-xl border border-[#474973] p-3 flex flex-col col-span-1">
-                    <h3 className="text-xs font-bold text-[#F1DAC4] mb-3 flex items-center gap-1">
-                      <Users className="w-3 h-3 text-[#A69CAC]" /> 맞라인 상대 비교
+                  <div className="bg-slate-800 rounded-xl border border-slate-700 p-3 flex flex-col col-span-1">
+                    <h3 className="text-xs font-bold text-slate-100 mb-3 flex items-center gap-1">
+                      <Users className="w-3 h-3 text-slate-400" /> 맞라인 상대 비교
                     </h3>
                     {laneComparison ? (
                       <div className="flex flex-col justify-center px-1">
@@ -866,35 +866,35 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                           <div className="flex items-center gap-2">
                             <img
                               src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/champion/${laneComparison.myChampionName}.png`}
-                              className="w-7 h-7 rounded-full border border-[#A69CAC]"
+                              className="w-7 h-7 rounded-full border border-slate-500"
                               alt=""
                             />
                             <div className="hidden sm:flex flex-col">
-                              <span className="text-[10px] font-bold text-[#F1DAC4]">
+                              <span className="text-[10px] font-bold text-slate-100">
                                 {laneComparison.myChampionName}
                               </span>
-                              <span className="text-[10px] text-[#A69CAC]">
+                              <span className="text-[10px] text-slate-400">
                                 {normalizePosition(laneComparison.myPosition)}
                               </span>
                             </div>
                           </div>
 
-                          <span className="text-[10px] text-[#A69CAC] font-bold px-2 py-0.5 bg-[#474973] rounded-full">
+                          <span className="text-[10px] text-slate-400 font-bold px-2 py-0.5 bg-slate-700 rounded-full">
                             VS
                           </span>
 
                           <div className="flex items-center gap-2">
                             <div className="hidden sm:flex flex-col items-end">
-                              <span className="text-[10px] font-bold text-[#F1DAC4]">
+                              <span className="text-[10px] font-bold text-slate-100">
                                 {laneComparison.opponentChampionName}
                               </span>
-                              <span className="text-[10px] text-[#A69CAC]">
+                              <span className="text-[10px] text-slate-400">
                                 {normalizePosition(laneComparison.opponentPosition)}
                               </span>
                             </div>
                             <img
                               src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/champion/${laneComparison.opponentChampionName}.png`}
-                              className="w-7 h-7 rounded-full border border-[#A69CAC]"
+                              className="w-7 h-7 rounded-full border border-slate-500"
                               alt=""
                             />
                           </div>
@@ -916,46 +916,46 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                           oppValue={laneComparison.opponentDamageToChampions || 0}
                         />
 
-                        <div className="mt-2 text-[11px] text-[#A69CAC]">
+                        <div className="mt-2 text-[11px] text-slate-400">
                           차이값:
-                          <span className="ml-2 text-[#F1DAC4]">
+                          <span className="ml-2 text-slate-100">
                             CS {laneComparison.csDiff >= 0 ? '+' : ''}
                             {laneComparison.csDiff}
                           </span>
-                          <span className="ml-2 text-[#F1DAC4]">
+                          <span className="ml-2 text-slate-100">
                             골드 {laneComparison.goldDiff >= 0 ? '+' : ''}
                             {laneComparison.goldDiff.toLocaleString()}
                           </span>
-                          <span className="ml-2 text-[#F1DAC4]">
+                          <span className="ml-2 text-slate-100">
                             딜량 {laneComparison.damageDiff >= 0 ? '+' : ''}
                             {laneComparison.damageDiff.toLocaleString()}
                           </span>
                         </div>
                       </div>
                     ) : (
-                      <div className="text-xs text-[#A69CAC] text-center mt-8">
+                      <div className="text-xs text-slate-400 text-center mt-8">
                         맞라인 상대 비교 데이터가 없어서 기본 지표만 표시합니다.
                       </div>
                     )}
                   </div>
 
-                  <div className="bg-[#161B33] rounded-xl border border-[#474973] p-3 md:col-span-2">
-                    <h3 className="text-xs font-bold text-[#F1DAC4] mb-3">핵심 지표 카드</h3>
+                  <div className="bg-slate-800 rounded-xl border border-slate-700 p-3 md:col-span-2">
+                    <h3 className="text-xs font-bold text-slate-100 mb-3">핵심 지표 카드</h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                       {metricCards.map((metric) => (
                         <div
                           key={metric.key}
-                          className="rounded-lg border border-[#474973] bg-[#0D0C1D] p-3"
+                          className="rounded-lg border border-slate-700 bg-slate-900 p-3"
                           title={metric.description || metric.label}
                         >
-                          <div className="text-[10px] text-[#A69CAC]">{metric.label}</div>
-                          <div className="text-sm font-bold text-[#F1DAC4] mt-1">
+                          <div className="text-[10px] text-slate-400">{metric.label}</div>
+                          <div className="text-sm font-bold text-slate-100 mt-1">
                             {formatMetricValue(metric)}
                           </div>
-                          <div className="text-[10px] text-[#A69CAC] mt-1">
+                          <div className="text-[10px] text-slate-400 mt-1">
                             점수 {safeNumber(metric.score, 0)}
                           </div>
-                          <div className="text-[10px] text-[#A69CAC]/80 mt-1 leading-tight">
+                          <div className="text-[10px] text-slate-400/80 mt-1 leading-tight">
                             {metric.description}
                           </div>
                         </div>
@@ -963,9 +963,9 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                     </div>
                   </div>
 
-                  <div className="bg-[#161B33] rounded-xl border border-[#474973] p-3 md:col-span-2">
+                  <div className="bg-slate-800 rounded-xl border border-slate-700 p-3 md:col-span-2">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-3">
-                      <h3 className="text-xs font-bold text-[#F1DAC4]">시간대별 성장 추이</h3>
+                      <h3 className="text-xs font-bold text-slate-100">시간대별 성장 추이</h3>
                       <div className="flex flex-wrap gap-2">
                         {TIMELINE_METRIC_OPTIONS.map((option) => (
                           <button
@@ -973,8 +973,8 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                             onClick={() => setTimelineMetric(option.key)}
                             className={`px-2.5 py-1 rounded-lg text-[11px] border transition-colors ${
                               timelineMetric === option.key
-                                ? 'bg-[#474973] border-[#A69CAC]/40 text-[#F1DAC4]'
-                                : 'bg-[#0D0C1D] border-[#474973] text-[#A69CAC] hover:text-[#F1DAC4]'
+                                ? 'bg-slate-700 border-slate-500/40 text-slate-100'
+                                : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-100'
                             }`}
                           >
                             {option.label}
@@ -983,7 +983,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                       </div>
                     </div>
 
-                    <div className="mb-3 text-[11px] text-[#A69CAC]">
+                    <div className="mb-3 text-[11px] text-slate-400">
                       파란색은 내 수치, 빨간색은 맞라인 상대 수치입니다.
                     </div>
 
@@ -1045,7 +1045,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                         </ResponsiveContainer>
                       </div>
                     ) : (
-                      <div className="w-full h-44 flex items-center justify-center text-xs text-[#A69CAC]">
+                      <div className="w-full h-44 flex items-center justify-center text-xs text-slate-400">
                         {isExcludedAnalysis
                           ? '집계 제외 경기라 시간대별 성장 추이를 표시하지 않습니다.'
                           : '상세 분석 API 응답이 오면 시간대별 추이가 표시됩니다.'}
@@ -1053,9 +1053,9 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                     )}
                   </div>
 
-                  <div className="bg-[#161B33] rounded-xl border border-[#474973] p-3 md:col-span-2">
-                    <h3 className="text-xs font-bold text-[#F1DAC4] mb-2 flex items-center gap-1">
-                      <Target className="w-3 h-3 text-[#A69CAC]" /> 시스템 코멘트
+                  <div className="bg-slate-800 rounded-xl border border-slate-700 p-3 md:col-span-2">
+                    <h3 className="text-xs font-bold text-slate-100 mb-2 flex items-center gap-1">
+                      <Target className="w-3 h-3 text-slate-400" /> 시스템 코멘트
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {comments.length > 0 ? (
@@ -1086,7 +1086,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
                           </div>
                         ))
                       ) : (
-                        <div className="text-xs text-[#A69CAC]">표시할 코멘트가 없습니다.</div>
+                        <div className="text-xs text-slate-400">표시할 코멘트가 없습니다.</div>
                       )}
                     </div>
                   </div>
@@ -1094,7 +1094,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
               )}
 
               {!activeAnalysisError && !isAnalysisLoading && !analysisDetail && (
-                <div className="text-xs text-[#A69CAC] text-center py-4">
+                <div className="text-xs text-slate-400 text-center py-4">
                   상세 분석 API가 아직 응답하지 않아 기본 지표만 표시 중입니다.
                 </div>
               )}

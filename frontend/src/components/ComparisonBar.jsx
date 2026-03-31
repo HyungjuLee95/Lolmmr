@@ -23,7 +23,7 @@ const ComparisonBar = ({ label, myValue, oppValue, isLowerBetter = false }) => {
   return (
     <div className="flex flex-col gap-1.5 mb-3">
       <div className="flex items-center justify-between px-1">
-        <span className={`text-[10px] md:text-xs ${isMyWin ? 'text-[#F1DAC4] font-bold' : 'text-[#A69CAC]'}`}>
+        <span className={`text-[10px] md:text-xs ${isMyWin ? 'text-slate-100 font-bold' : 'text-slate-400'}`}>
           {my.toLocaleString()}
         </span>
 
@@ -47,12 +47,12 @@ const ComparisonBar = ({ label, myValue, oppValue, isLowerBetter = false }) => {
           </span>
         </div>
 
-        <span className={`text-[10px] md:text-xs ${isOppWin ? 'text-[#A69CAC] font-bold' : 'text-[#A69CAC]'}`}>
+        <span className={`text-[10px] md:text-xs ${isOppWin ? 'text-slate-400 font-bold' : 'text-slate-400'}`}>
           {opp.toLocaleString()}
         </span>
       </div>
 
-      <div className="flex w-full h-1.5 md:h-2 rounded-full overflow-hidden bg-[#474973]">
+      <div className="flex w-full h-1.5 md:h-2 rounded-full overflow-hidden bg-slate-700">
         <div
           className="bg-[#F1DAC4] h-full transition-all duration-500"
           style={{ width: `${myPct}%` }}
