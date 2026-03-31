@@ -46,7 +46,8 @@ public class SummonerController {
     @GetMapping("/mmr")
     public Map<String, Object> getMmrAnalysis(
             @RequestParam("name") String name,
-            @RequestParam(value = "queue", required = false, defaultValue = "solo") String queue
+            @RequestParam(value = "queue", required = false, defaultValue = "solo") String queue,
+            @RequestParam(value = "forceRefresh", required = false, defaultValue = "false") boolean forceRefresh
     ) {
         try {
             String decodedName = URLDecoder.decode(name, StandardCharsets.UTF_8).trim();
@@ -83,7 +84,7 @@ public class SummonerController {
                 return errorResult;
             }
 
-            Map<String, Object> analysisResult = summonerService.getMmrAnalysis(gameName, tagLine, queue);
+            Map<String, Object> analysisResult = summonerService.getMmrAnalysis(gameName, tagLine, queue, forceRefresh);
             SummonerDTO summoner = (SummonerDTO) analysisResult.get("summoner");
 
             Map<String, Object> finalResponse = new HashMap<>();
@@ -116,6 +117,8 @@ public class SummonerController {
             queues.put("flex", flexData);
 
             finalResponse.put("queues", queues);
+            finalResponse.put("activeGame", analysisResult.get("activeGame"));
+            finalResponse.put("championMasteries", analysisResult.get("championMasteries"));
 
             Map<String, Object> meta = new HashMap<>();
             meta.put("requestedQueue", analysisResult.get("requestedQueue"));

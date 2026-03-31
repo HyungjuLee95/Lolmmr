@@ -58,6 +58,15 @@ public class RiotApiClient {
         }, url);
     }
 
+    public <T> T getOptional(String url, ParameterizedTypeReference<T> responseType) {
+        return executeWithRetry(() -> {
+            HttpEntity<Void> entity = new HttpEntity<>(buildHeaders());
+            ResponseEntity<T> resp =
+                    restTemplate.exchange(URI.create(url), HttpMethod.GET, entity, responseType);
+            return resp.getBody();
+        }, url, true);
+    }
+
     private HttpHeaders buildHeaders() {
         if (!StringUtils.hasText(apiKey)) {
             throw new IllegalStateException("Riot API key is missing. Check RIOT_API_KEY environment variable.");
@@ -77,6 +86,10 @@ public class RiotApiClient {
     }
 
     private <T> T executeWithRetry(RiotCall<T> call, String url) {
+        return executeWithRetry(call, url, false);
+    }
+
+    private <T> T executeWithRetry(RiotCall<T> call, String url, boolean ignore404) {
         int attempt = 1;
 
         while (true) {
@@ -84,6 +97,10 @@ public class RiotApiClient {
                 return call.execute();
             } catch (HttpStatusCodeException e) {
                 int status = e.getStatusCode().value();
+
+                if (ignore404 && status == 404) {
+                    return null;
+                }
 
                 if (status == 429 && attempt < DEFAULT_MAX_ATTEMPTS) {
                     long sleepMs = resolveRetryDelayMs(e);

@@ -73,6 +73,30 @@ public class SummonerService {
 
     private final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
+    private Map<Long, String> championIdToNameMap = null;
+
+    private synchronized String resolveChampionName(long championId) {
+        if (championIdToNameMap == null) {
+            championIdToNameMap = new HashMap<>();
+            try {
+                String ddragonUrl = "https://ddragon.leagueoflegends.com/cdn/16.6.1/data/en_US/champion.json";
+                Map<String, Object> data = new org.springframework.web.client.RestTemplate().getForObject(ddragonUrl, Map.class);
+                if (data != null && data.get("data") != null) {
+                    Map<String, Map<String, Object>> champs = (Map<String, Map<String, Object>>) data.get("data");
+                    for (Map.Entry<String, Map<String, Object>> entry : champs.entrySet()) {
+                        String idStr = (String) entry.getValue().get("key");
+                        long cId = Long.parseLong(idStr);
+                        String nameId = (String) entry.getValue().get("id");
+                        championIdToNameMap.put(cId, nameId);
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Failed to load DDragon champion.json", e);
+            }
+        }
+        return championIdToNameMap.getOrDefault(championId, "Unknown");
+    }
+
     public int convertTierToMmr(String tier, String rank) {
         if (tier == null || tier.isBlank() || "UNRANKED".equalsIgnoreCase(tier)) {
             return 1000;
@@ -218,13 +242,25 @@ public class SummonerService {
         return summoner;
     }
 
+    @Autowired
+    private org.springframework.cache.CacheManager cacheManager;
+
     public Map<String, Object> getMmrAnalysis(String gameName, String tagLine) {
-        return getMmrAnalysis(gameName, tagLine, "both");
+        return getMmrAnalysis(gameName, tagLine, "both", false);
     }
 
-    public Map<String, Object> getMmrAnalysis(String gameName, String tagLine, String queue) {
+    public Map<String, Object> getMmrAnalysis(String gameName, String tagLine, String queue, boolean forceRefresh) {
         String normalizedQueue = normalizeQueue(queue);
         String cacheKey = buildMmrCacheKey(gameName, tagLine, normalizedQueue);
+
+        if (forceRefresh) {
+            log.info("Force refresh requested. Evicting caches for {}#{}", gameName, tagLine);
+            redisTemplate.delete(cacheKey);
+            org.springframework.cache.Cache cache = cacheManager.getCache("summonerInfo");
+            if (cache != null) {
+                cache.evict(gameName + "-" + tagLine);
+            }
+        }
 
         Map<String, Object> cachedResult = readMmrAnalysisCache(cacheKey);
         if (cachedResult != null) {
@@ -306,6 +342,36 @@ public class SummonerService {
         result.put("flexScoreResult", flexScoreResult);
         result.put("requestedQueue", queue);
         result.put("resolvedQueue", normalizedQueue);
+
+        try {
+            String activeGameUrl = "https://kr.api.riotgames.com/lol/spectator/v5/active-games/by-summoner/" + puuid;
+            Map<String, Object> activeGame = riotApiClient.getOptional(activeGameUrl, new ParameterizedTypeReference<Map<String, Object>>() {});
+            if (activeGame != null) {
+                result.put("activeGame", activeGame);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to fetch active game for puuid={}. cause={}", puuid, e.getMessage());
+        }
+
+        try {
+            String masteryUrl = "https://kr.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/" + puuid + "/top?count=3";
+            List<Map<String, Object>> masteries = riotApiClient.getOptional(masteryUrl, new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+            if (masteries != null && !masteries.isEmpty()) {
+                List<Map<String, Object>> topMasteries = new ArrayList<>();
+                for (Map<String, Object> m : masteries) {
+                    Map<String, Object> item = new HashMap<>();
+                    long championId = ((Number) m.get("championId")).longValue();
+                    item.put("championId", championId);
+                    item.put("championName", resolveChampionName(championId));
+                    item.put("championLevel", m.get("championLevel"));
+                    item.put("championPoints", m.get("championPoints"));
+                    topMasteries.add(item);
+                }
+                result.put("championMasteries", topMasteries);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to fetch champion masteries for puuid={}. cause={}", puuid, e.getMessage());
+        }
 
         Map<String, Object> counts = new HashMap<>();
         counts.put("solo", buildQueueCounts(soloScoreSampleMatches));
@@ -581,6 +647,28 @@ public class SummonerService {
         Object flexScoreResultObj = raw.get("flexScoreResult");
         if (flexScoreResultObj != null) {
             restored.put("flexScoreResult", objectMapper.convertValue(flexScoreResultObj, ScoreResult.class));
+        }
+
+        Object activeGameObj = raw.get("activeGame");
+        if (activeGameObj != null) {
+            restored.put(
+                    "activeGame",
+                    objectMapper.convertValue(
+                            activeGameObj,
+                            new TypeReference<Map<String, Object>>() {}
+                    )
+            );
+        }
+
+        Object championMasteriesObj = raw.get("championMasteries");
+        if (championMasteriesObj != null) {
+            restored.put(
+                    "championMasteries",
+                    objectMapper.convertValue(
+                            championMasteriesObj,
+                            new TypeReference<List<Map<String, Object>>>() {}
+                    )
+            );
         }
 
         return restored;

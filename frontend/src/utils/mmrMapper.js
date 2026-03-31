@@ -518,6 +518,8 @@ export const mapApiToUiData = (apiData, preferredQueue = 'solo') => {
     activeQueueLabel,
     availableQueues,
     summary,
+    activeGame: apiData?.activeGame || null,
+    championMasteries: apiData?.championMasteries || [],
     matches: rawMatches.map((match, index) =>
       toUiMatch(match, summonerName, index, apiData?.summoner?.puuid)
     ),

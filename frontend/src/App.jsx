@@ -175,7 +175,7 @@ export default function App() {
   }, []);
 
   const fetchMmrData = useCallback(
-    async (queryName, queueKey = DEFAULT_QUEUE) => {
+    async (queryName, queueKey = DEFAULT_QUEUE, forceRefresh = false) => {
       const trimmedName = safeString(queryName, '');
       const normalizedQueue = normalizeQueue(queueKey);
 
@@ -192,6 +192,7 @@ export default function App() {
           params: {
             name: trimmedName,
             queue: normalizedQueue,
+            forceRefresh: forceRefresh,
           },
         });
 
@@ -412,6 +413,26 @@ export default function App() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8">
+        {data?.activeGame && (
+          <div className="bg-[#474973]/40 border border-[#F1DAC4]/50 rounded-xl p-3 mb-6 flex items-center justify-between shadow-[0_0_15px_rgba(241,218,196,0.1)] relative overflow-hidden animate-[pulse_3s_infinite]">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#F1DAC4]/5 to-transparent animate-[shimmer_2s_infinite]" />
+            <div className="flex items-center gap-3 relative z-10">
+              <div className="relative flex min-w-[12px] min-h-[12px]">
+                <div className="absolute inline-flex w-full h-full rounded-full bg-green-400 opacity-75 animate-ping"></div>
+                <div className="relative inline-flex w-3 h-3 rounded-full bg-green-500"></div>
+              </div>
+              <span className="text-sm font-bold text-[#F1DAC4]">
+                🟢 현재 게임 플레이 중 ({data.activeGame.gameMode})
+              </span>
+            </div>
+            {data.activeGame.gameLength > 0 && (
+              <span className="text-xs font-semibold text-[#A69CAC] relative z-10 border border-[#A69CAC]/40 px-2 py-1 rounded bg-[#0D0C1D]/50">
+                {Math.floor(data.activeGame.gameLength / 60)}분 {(data.activeGame.gameLength % 60).toString().padStart(2, '0')}초 진행중
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="w-full lg:w-80 flex flex-col gap-4 flex-shrink-0">
             <div className="bg-[#161B33] rounded-xl p-5 border border-[#474973] relative overflow-hidden">
@@ -430,9 +451,19 @@ export default function App() {
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <h1 className="text-xl font-bold text-[#F1DAC4] mb-2 truncate">
-                    {summonerName}
-                  </h1>
+                  <div className="flex items-center justify-between mb-2">
+                    <h1 className="text-xl font-bold text-[#F1DAC4] truncate">
+                      {summonerName}
+                    </h1>
+                    <button
+                      type="button"
+                      disabled={isLoading}
+                      onClick={() => fetchMmrData(lastSearchedName, selectedQueue, true)}
+                      className="bg-[#A69CAC] hover:bg-[#F1DAC4] text-[#0D0C1D] text-xs font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 shrink-0 disabled:opacity-50"
+                    >
+                      {isLoading ? '갱신 중...' : '전적 갱신'}
+                    </button>
+                  </div>
 
                   <div className="flex flex-wrap gap-2 mb-3">
                     {QUEUE_OPTIONS.map((option) => {
@@ -632,6 +663,35 @@ export default function App() {
                 )}
               </div>
             </div>
+
+            {/* Champion Masteries Top 3 */}
+            {data?.championMasteries && data.championMasteries.length > 0 && (
+              <div className="bg-[#161B33] rounded-xl p-4 border border-[#474973] relative overflow-hidden">
+                <h3 className="text-[#A69CAC] text-[11px] font-bold mb-3 pb-2 border-b border-[#474973] uppercase tracking-wider text-center flex items-center justify-center gap-1.5">
+                  <span className="text-xl">🏆</span> 상위 챔피언 숙련도 탑3
+                </h3>
+                <div className="flex flex-col gap-2">
+                  {data.championMasteries.map((m, idx) => (
+                    <div key={idx} className="flex items-center gap-3 bg-[#0D0C1D]/60 rounded-lg p-2.5 border border-[#474973]/50 hover:bg-[#474973]/40 hover:border-[#F1DAC4]/30 transition-all shadow-sm">
+                      <div className="relative isolate group">
+                        <img
+                          src={`https://ddragon.leagueoflegends.com/cdn/16.6.1/img/champion/${m.championName}.png`}
+                          alt={m.championName}
+                          className="w-11 h-11 rounded border border-[#474973] group-hover:border-[#F1DAC4] transition-colors"
+                        />
+                        <div className="absolute -bottom-1 -right-1 bg-gradient-to-r from-[#161B33] to-[#0D0C1D] border border-[#F1DAC4]/80 shadow-md text-[9px] w-[18px] h-[18px] rounded-full flex items-center justify-center font-black text-[#F1DAC4] z-10">
+                          {m.championLevel}
+                        </div>
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[#F1DAC4] text-[13px] font-bold truncate leading-tight">{m.championName}</span>
+                        <span className="text-[#A69CAC] text-[10px] font-medium">{m.championPoints?.toLocaleString() || 0} pt</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 flex flex-col gap-2">
