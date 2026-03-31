@@ -5,7 +5,7 @@ import { Flame, Search, Trophy } from './components/icons';
 import { MOCK_DATA } from './data/mmrMockData';
 import { mapApiToUiData } from './utils/mmrMapper';
 
-const PROFILE_ICON_VERSION = '14.3.1';
+const PROFILE_ICON_VERSION = '16.6.1';
 const INITIAL_MATCH_RENDER_COUNT = 5;
 const LOAD_MORE_STEP = 5;
 const DEFAULT_QUEUE = 'solo';
@@ -277,6 +277,8 @@ export default function App() {
     (selectedQueue === 'flex' ? data?.summoner?.flexRank : data?.summoner?.soloRank);
 
   const currentRank = formatRankInfo(activeRankInfo);
+  const tierName = activeRankInfo?.tier ? String(activeRankInfo.tier).toLowerCase() : null;
+  const tierImageUrl = tierName && tierName !== 'unranked' ? `https://opgg-static.akamaized.net/images/medals_new/${tierName}.png` : null;
 
   const allMatches = useMemo(
     () => (Array.isArray(data?.matches) ? data.matches : []),
@@ -455,13 +457,16 @@ export default function App() {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    <div className="bg-[#474973] px-2 py-1 rounded flex flex-col items-center border border-[#A69CAC]/40 min-w-[82px]">
+                    <div className="bg-[#474973] px-2 py-2 rounded flex flex-col items-center justify-center border border-[#A69CAC]/40 min-w-[82px]">
                       <span className="text-[10px] text-[#A69CAC]">현티어</span>
-                      <span className="text-sm font-bold text-[#F1DAC4]">{currentRank.tierText}</span>
+                      {tierImageUrl && (
+                        <img src={tierImageUrl} alt={tierName} className="w-10 h-10 my-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                      )}
+                      <span className="text-sm font-bold text-[#F1DAC4] mb-0.5">{currentRank.tierText}</span>
                       <span className="text-[10px] text-[#A69CAC]">{currentRank.lpText}</span>
                     </div>
 
-                    <div className="bg-[#474973] px-2 py-1 rounded flex flex-col items-center border border-[#A69CAC]/40 min-w-[78px]">
+                    <div className="bg-[#474973] px-2 py-2 rounded flex flex-col items-center justify-center border border-[#A69CAC]/40 min-w-[78px]">
                       <span className="text-[10px] text-[#A69CAC]">기준점수</span>
                       <span className="text-sm font-bold text-[#F1DAC4]">
                         {safeNumber(scoreDetails?.baseScore, 0)}
@@ -475,8 +480,8 @@ export default function App() {
                       </span>
                     </div>
 
-                    <div className="bg-[#474973] px-2 py-1 rounded flex flex-col items-center border border-[#A69CAC]/40 min-w-[82px]">
-                      <span className="text-[10px] text-[#A69CAC]">종합등급</span>
+                    <div className="bg-[#474973] px-2 py-2 rounded flex flex-col items-center justify-center border border-[#A69CAC]/40 min-w-[82px]">
+                      <span className="text-[10px] text-[#A69CAC] mb-1">종합등급</span>
                       <span
                         className={`text-sm font-black ${getGradeColor(
                           safeString(scoreDetails?.grade, 'C')

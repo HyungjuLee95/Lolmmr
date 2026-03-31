@@ -50,7 +50,7 @@ const PlayerRow = ({ player, isBlueTeam }) => {
       <div className="flex items-center gap-2 w-[140px] md:w-[190px]">
         <div className="relative flex-shrink-0">
           <img
-            src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/champion/${player?.champion || 'Ahri'}.png`}
+            src={`https://ddragon.leagueoflegends.com/cdn/16.6.1/img/champion/${player?.champion || 'Ahri'}.png`}
             className="w-6 h-6 md:w-8 md:h-8 rounded-full"
             alt={player?.champion || 'champion'}
           />
@@ -108,7 +108,7 @@ const PlayerRow = ({ player, isBlueTeam }) => {
             >
               {item !== 0 && (
                 <img
-                  src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/item/${item}.png`}
+                  src={`https://ddragon.leagueoflegends.com/cdn/16.6.1/img/item/${item}.png`}
                   className="w-full h-full rounded"
                   alt="item"
                 />

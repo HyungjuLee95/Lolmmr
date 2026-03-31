@@ -556,7 +556,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
         <div className="flex-1 p-3 flex items-center gap-4">
           <div className="flex items-center gap-2">
             <img
-              src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/champion/${match.summary.champion}.png`}
+              src={`https://ddragon.leagueoflegends.com/cdn/16.6.1/img/champion/${match.summary.champion}.png`}
               alt={match.summary.champion}
               className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-[#474973]"
             />
@@ -643,7 +643,7 @@ const MatchCard = ({ match, isExpanded, onToggle }) => {
               >
                 {item !== 0 && (
                   <img
-                    src={`https://ddragon.leagueoflegends.com/cdn/14.3.1/img/item/${item}.png`}
+                    src={`https://ddragon.leagueoflegends.com/cdn/16.6.1/img/item/${item}.png`}
                     alt="item"
                     className="w-full h-full rounded"
                   />
